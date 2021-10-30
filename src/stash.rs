@@ -8,7 +8,6 @@ use bitsy::*;
 pub struct Stash {
     header: [u8; 6],
     _unk1: BitArr!(for 32, in MyBitOrder, u8),
-    page_count: u32,
     pub pages: Vec<Page>,
     tail: MyBitVec,
 }
@@ -19,7 +18,6 @@ impl Stash {
         return Stash {
             header: [0; 6],
             _unk1: unk1,
-            page_count: 0,
             pages: Vec::new(),
             tail: BitVec::new(),
         };
@@ -32,9 +30,9 @@ impl Stash {
 
         stash.header = bitreader.read_byte_arr();
         bitreader.read_into_bitarr(32, &mut stash._unk1);
-        stash.page_count = bitreader.read_u32();
-        println!("Page count: {}", stash.page_count);
-        for _ in 0..stash.page_count {
+        let page_count = bitreader.read_u32();
+        println!("Page count: {}", page_count);
+        for _ in 0..page_count {
             stash.pages.push(Page::parse(&mut bitreader));
             println!("Parsed page: {}", stash.pages.last().unwrap())
         }
@@ -46,7 +44,7 @@ impl Stash {
         let mut bitvec: MyBitVec = BitVec::new();
         bitvec.extend_from_raw_slice(&self.header);
         bitvec.extend_from_bitslice(&self._unk1);
-        bitvec.append_u32(self.page_count);
+        bitvec.append_u32(self.pages.len() as u32);
         for page in &self.pages {
             page.append_to(&mut bitvec);
         }
@@ -64,7 +62,7 @@ impl Display for Stash {
         return write!(
             f,
             "I'm a stash with {} pages. Tail has {} bits",
-            self.page_count,
+            self.pages.len(),
             self.tail.len()
         );
     }
