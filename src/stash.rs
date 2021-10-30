@@ -48,7 +48,7 @@ impl Stash {
         for page in &self.pages {
             page.append_to(&mut bitvec);
         }
-        bitvec.append_bitvec(&self.tail);
+        bitvec.append_bits(&self.tail);
         return bitvec.into_vec();
     }
 }

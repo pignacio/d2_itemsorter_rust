@@ -1,7 +1,7 @@
 use crate::bitsy::*;
 use std::fmt::{Display, Formatter};
 
-pub trait Quality {
+pub trait Quality : Display {
     fn quality_id(&self) -> u8;
     fn write_quality_bytes(&self, bitvec: &mut MyBitVec);
     fn read_quality_bytes(id: u8, bitreader: &mut BitReader) -> Box<dyn Quality>
@@ -11,6 +11,14 @@ pub trait Quality {
 
 pub struct NormalQuality {
     id: u8,
+}
+
+impl NormalQuality {
+    pub fn default() -> NormalQuality {
+        return NormalQuality {
+            id: 15,
+        }
+    }
 }
 
 impl Quality for NormalQuality {
@@ -47,7 +55,7 @@ impl Quality for LowQuality {
     }
 
     fn read_quality_bytes(id: u8, bitreader: &mut BitReader) -> Box<dyn Quality> {
-        assert_eq!(id, 2, "Low quality should have id = 2");
+        assert_eq!(id, 1, "Low quality should have id = 1");
         return Box::new(LowQuality {
             low_quality_type: bitreader.read_int(3),
         });
@@ -159,7 +167,7 @@ pub struct RareQuality {
 // This includes crafted (id 8) along with rare (id 6)
 impl Quality for RareQuality {
     fn quality_id(&self) -> u8 {
-        return 5;
+        return self.id;
     }
 
     fn write_quality_bytes(&self, bitvec: &mut MyBitVec) {
@@ -204,7 +212,7 @@ impl Display for RareQuality {
     }
 }
 
-struct UniqueQuality {
+pub struct UniqueQuality {
     unique_id: u16,
 }
 

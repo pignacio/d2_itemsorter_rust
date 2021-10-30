@@ -21,7 +21,7 @@ impl Page {
         page.header = bits.read_byte_arr();
         let item_count = bits.read_int(16);
         println!(
-            "Parsing page with {} items. Index:{} Byte:{}",
+            " - Parsing page with {} items. Index:{} Byte:{}",
             item_count,
             bits.index(),
             bits.index() / 8
@@ -41,7 +41,7 @@ impl Page {
         for item in &self.items {
             item.append_to(bitvec);
         }
-        bitvec.append_bitvec(&self.tail);
+        bitvec.append_bits(&self.tail);
     }
 }
 

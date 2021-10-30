@@ -57,13 +57,22 @@ impl BitReader {
         self.index += size;
     }
 
-    pub fn read_bitvec(&mut self, size: usize) -> MyBitVec {
+    pub fn read_bits(&mut self, size: usize) -> MyBitVec {
         let mut bitvec = BitVec::new();
         for bit in self.bits[self.index..].iter().take(size) {
             bitvec.push(*bit);
         }
         self.index += size;
         return bitvec;
+    }
+
+    pub fn read_optional_bits(&mut self, num_bits: usize) -> Option<MyBitVec> {
+        let is_present = self.read_bool();
+        return if is_present {
+            Some(self.read_bits(num_bits))
+        } else {
+            None
+        }
     }
 
     pub fn read_bool(&mut self) -> bool {
@@ -145,7 +154,8 @@ pub trait BitWriter {
     fn append_int<T: Into<u32>>(&mut self, value: T, num_bits: usize);
     fn append_optional_int<T: Into<u32>>(&mut self, optional: Option<T>, num_bits: usize);
     fn append_bitarr<O: BitOrder, V: BitViewSized>(&mut self, array: &BitArray<O, V>);
-    fn append_bitvec(&mut self, bitvec: &MyBitVec);
+    fn append_bits(&mut self, bitvec: &MyBitVec);
+    fn append_optional_bits(&mut self, optional: &Option<MyBitVec>);
 }
 
 impl BitWriter for MyBitVec {
@@ -192,9 +202,21 @@ impl BitWriter for MyBitVec {
         panic!();
     }
 
-    fn append_bitvec(&mut self, bitvec: &MyBitVec) {
+    fn append_bits(&mut self, bitvec: &MyBitVec) {
         for bit in bitvec {
             self.append_bool(*bit);
+        }
+    }
+
+    fn append_optional_bits(&mut self, optional: &Option<MyBitVec>) {
+        match optional {
+            Some(bits) => {
+                self.append_bool(true);
+                self.append_bits(&bits);
+            },
+            None => {
+                self.append_bool(false);
+            }
         }
     }
 }

@@ -18,7 +18,7 @@ fn main() {
 
     let new_bytes = stash.to_bytes();
 
-    show(stash);
+    // show(stash);
 
     if bytes.len() != new_bytes.len() {
         println!(
@@ -48,19 +48,4 @@ fn show(stash: Stash) {
             println!("   * Item #{}: {}", item_index, item);
         }
     }
-}
-
-
-
-
-
-
-
-fn arr_to_str(arr: &[u8]) -> String {
-    let string = arr
-        .iter()
-        .map(|value| format!("{}, ", value))
-        .collect::<String>();
-
-    return format!("[{}]", string);
 }
