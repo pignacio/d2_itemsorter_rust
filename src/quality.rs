@@ -1,0 +1,215 @@
+use crate::bitsy::*;
+
+pub trait Quality {
+    fn display_name(&self) -> String;
+    fn quality_id(&self) -> u8;
+    fn write_quality_bytes(&self, bitvec: &mut MyBitVec);
+    fn read_quality_bytes(id: u8, bitreader: &mut BitReader) -> Box<dyn Quality> where Self: Sized;
+}
+
+pub struct NormalQuality {
+    id: u8,
+}
+
+impl Quality for NormalQuality {
+    fn display_name(&self) -> String {
+        return "normal".to_string();
+    }
+
+    fn quality_id(&self) -> u8 {
+        return self.id;
+    }
+
+    fn write_quality_bytes(&self, _bitvec: &mut MyBitVec) {
+        // No extra bits
+    }
+
+    fn read_quality_bytes(id: u8, _bitreader: &mut BitReader) -> Box<dyn Quality> {
+        return Box::new(NormalQuality{
+            id
+        });
+    }
+}
+
+pub struct LowQuality {
+    low_quality_type: u8,
+}
+
+impl Quality for LowQuality {
+    fn display_name(&self) -> String {
+        return format!("low({})", self.low_quality_type);
+    }
+    
+    fn quality_id(&self) -> u8 {
+        return 1;
+    }
+
+    fn write_quality_bytes(&self, bitvec: &mut MyBitVec) {
+        bitvec.append_int(self.low_quality_type as u32, 3);
+    }
+
+    fn read_quality_bytes(id: u8, bitreader: &mut BitReader) -> Box<dyn Quality> {
+        assert_eq!(id, 2, "Low quality should have id = 2");
+        return Box::new(LowQuality{
+            low_quality_type : bitreader.read_int(3),
+        });
+    }
+}
+
+pub struct HighQuality {
+    high_quality_type: u8,
+}
+
+impl Quality for HighQuality {
+    fn display_name(&self) -> String {
+        return format!("high({})", self.high_quality_type);
+    }
+
+    fn quality_id(&self) -> u8 {
+        return 3;
+    }
+
+    fn write_quality_bytes(&self, bitvec: &mut MyBitVec) {
+        bitvec.append_int(self.high_quality_type as u32, 3);
+    }
+
+    fn read_quality_bytes(id: u8, bitreader: &mut BitReader) -> Box<dyn Quality> {
+        assert_eq!(id, 3, "High quality should have id = 3");
+        return Box::new(HighQuality{
+            high_quality_type : bitreader.read_int(3),
+        });
+    }
+}
+
+pub struct MagicQuality {
+    prefix: u16,
+    suffix: u16,
+}
+
+impl Quality for MagicQuality {
+    fn display_name(&self) -> String {
+        return format!("magic(pre:{}, suf:{})", self.prefix, self.suffix);
+    }
+
+
+    fn quality_id(&self) -> u8 {
+        return 4;
+    }
+
+    fn write_quality_bytes(&self, bitvec: &mut MyBitVec) {
+        bitvec.append_int(self.prefix as u32, 11);
+        bitvec.append_int(self.suffix as u32, 11);
+    }
+
+    fn read_quality_bytes(id: u8, bitreader: &mut BitReader) -> Box<dyn Quality> {
+        assert_eq!(id, 4, "Magic quality should have id = 4");
+        return Box::new(MagicQuality{
+            prefix : bitreader.read_int(11),
+            suffix : bitreader.read_int(11),
+        });
+    }
+}
+
+pub struct SetQuality {
+    set_id: u16,
+}
+
+impl Quality for SetQuality {
+    fn display_name(&self) -> String {
+        return format!("set({})", self.set_id);
+    }
+
+    fn quality_id(&self) -> u8 {
+        return 5;
+    }
+
+    fn write_quality_bytes(&self, bitvec: &mut MyBitVec) {
+        bitvec.append_int(self.set_id as u32, 12);
+    }
+
+    fn read_quality_bytes(id: u8, bitreader: &mut BitReader) -> Box<dyn Quality> {
+        assert_eq!(id, 5, "Set quality should have id = 5");
+        return Box::new(SetQuality{
+            set_id : bitreader.read_int(12),
+        });
+    }
+}
+
+pub struct RareQuality {
+    id: u8,
+    first_name: u8,
+    last_name: u8,
+    prefix1: Option<u16>,
+    prefix2: Option<u16>,
+    prefix3: Option<u16>,
+    suffix1: Option<u16>,
+    suffix2: Option<u16>,
+    suffix3: Option<u16>,
+}
+
+// This includes crafted (id 8) along with rare (id 6)
+impl Quality for RareQuality {
+    fn display_name(&self) -> String {
+        return format!(
+            "{}({} {})",
+            if self.id == 6 { "rare" } else { "crafted" },
+            self.first_name,
+            self.last_name,
+        );
+    }
+
+    fn quality_id(&self) -> u8 {
+        return 5;
+    }
+
+    fn write_quality_bytes(&self, bitvec: &mut MyBitVec) {
+        bitvec.append_int(self.first_name, 8);
+        bitvec.append_int(self.last_name, 8);
+        bitvec.append_optional_int(self.prefix1, 11);
+        bitvec.append_optional_int(self.suffix1, 11);
+        bitvec.append_optional_int(self.prefix2, 11);
+        bitvec.append_optional_int(self.suffix2, 11);
+        bitvec.append_optional_int(self.prefix3, 11);
+        bitvec.append_optional_int(self.suffix3, 11);
+    }
+
+    fn read_quality_bytes(id: u8, bitreader: &mut BitReader) -> Box<dyn Quality> {
+        assert!(id == 6 || id == 8, "Rare/Crafted quality should have id in [6, 8]");
+        return Box::new(RareQuality{
+            id: id,
+            first_name : bitreader.read_int(8),
+            last_name : bitreader.read_int(8),
+            prefix1: bitreader.read_optional_int(11),
+            suffix1: bitreader.read_optional_int(11),
+            prefix2: bitreader.read_optional_int(11),
+            suffix2: bitreader.read_optional_int(11),
+            prefix3: bitreader.read_optional_int(11),
+            suffix3: bitreader.read_optional_int(11),
+        });
+    }
+}
+
+struct UniqueQuality {
+    unique_id: u16,
+}
+
+impl Quality for UniqueQuality {
+    fn display_name(&self) -> String {
+        return format!("unique({})", self.unique_id)
+    }
+
+    fn quality_id(&self) -> u8 {
+        return 7;
+    }
+
+    fn write_quality_bytes(&self, bitvec: &mut MyBitVec) {
+        bitvec.append_int(self.unique_id, 12);
+    }
+
+    fn read_quality_bytes(id: u8, bitreader: &mut BitReader) -> Box<dyn Quality> {
+        assert_eq!(id, 7, "Unique quality should have id = 7");
+        return Box::new(UniqueQuality{
+          unique_id: bitreader.read_int(12),
+        });
+    }
+}

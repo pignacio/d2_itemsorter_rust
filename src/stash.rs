@@ -30,7 +30,7 @@ impl Stash {
 
         stash.header = bitreader.read_byte_arr();
         bitreader.read_into_bitarr(32, &mut stash._unk1);
-        let page_count = bitreader.read_u32();
+        let page_count = bitreader.read_int(32);
         println!("Page count: {}", page_count);
         for _ in 0..page_count {
             stash.pages.push(Page::parse(&mut bitreader));

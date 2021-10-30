@@ -19,7 +19,7 @@ impl Page {
         };
 
         page.header = bits.read_byte_arr();
-        let item_count = bits.read_u16();
+        let item_count = bits.read_int(16);
         println!(
             "Parsing page with {} items. Index:{} Byte:{}",
             item_count,

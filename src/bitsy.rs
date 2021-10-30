@@ -1,3 +1,5 @@
+use std::convert::TryFrom;
+
 use bitvec::prelude::*;
 use bitvec::view::BitViewSized;
 
@@ -27,7 +29,7 @@ impl BitReader {
         let mut result = [0; N];
 
         for index in 0..N {
-            result[index] = self.read_int(8) as u8;
+            result[index] = self.read_int(8);
         }
         return result;
     }
@@ -64,35 +66,16 @@ impl BitReader {
         return bitvec;
     }
 
-    pub fn read_u32(&mut self) -> u32 {
-        return self.read_int(32);
-    }
-
-    pub fn read_u16(&mut self) -> u16 {
-        return self.read_int(16) as u16;
-    }
-
     pub fn read_bool(&mut self) -> bool {
-        return self.read_int(1) != 0;
+        return self.read_int::<u32>(1) != 0;
     }
 
-    pub fn read_int(&mut self, num_bits: usize) -> u32 {
+    pub fn read_int<T: TryFrom<u32>>(&mut self, num_bits: usize) -> T {
         assert!(num_bits <= 32, "Support for ints > 32 bits missing");
         let mut res: u32 = 0;
         let mut multiplier = 1;
 
         for index in 0..num_bits {
-            if (num_bits == 32) {
-                println!(
-                    "Bit#{}: {}, res:{}, mult:{}, index:{} + {}",
-                    index,
-                    if self.bits[self.index + index] { 1 } else { 0 },
-                    res,
-                    multiplier,
-                    self.index,
-                    index,
-                );
-            }
             res += self.bits[self.index + index] as u32 * multiplier;
             if index < 31 {
                 multiplier *= 2;
@@ -100,7 +83,16 @@ impl BitReader {
         }
 
         self.index += num_bits;
-        return res;
+        return T::try_from(res).unwrap_or_else(|_| { panic!("Int did not fit")});
+    }
+
+    pub fn read_optional_int<T: TryFrom<u32>>(&mut self, num_bits: usize) -> Option<T> {
+        let is_present = self.read_bool();
+        return if is_present {
+            Some(self.read_int(num_bits))
+        } else {
+            None
+        }
     }
 
     fn find_match_index(&self, sentinel: &[u8]) -> Option<usize> {
@@ -120,30 +112,6 @@ impl BitReader {
             }
         }
         None
-    }
-
-    fn find_match_index_windows(&self, sentinel: &[u8]) -> Option<usize> {
-        let current_byte_index = (self.index - 1) / 8;
-        // println!(
-        //     "Waiting for sentinel {} after byte index {} / bit index {}",
-        //     arr_to_str(sentinel),
-        //     current_byte_index,
-        //     self.index
-        // );
-        return self
-            .bytes
-            .windows(sentinel.len())
-            .enumerate()
-            .position(|(index, window)| {
-                // if (window[0] == sentinel[0]) {
-                //     println!(
-                //         "Potential match start at index#{}. values:{}, sentinel:{}",
-                //         index, arr_to_str(window), arr_to_str(sentinel)
-                //     )
-                // }
-
-                return index > current_byte_index && window == sentinel;
-            });
     }
 
     pub fn read_until(&mut self, sentinel: &[u8]) -> MyBitVec {
@@ -174,17 +142,18 @@ pub trait BitWriter {
     fn append_u32(&mut self, value: u32);
     fn append_u16(&mut self, value: u16);
     fn append_bool(&mut self, value: bool);
-    fn append_int(&mut self, value: u32, num_bits: usize);
+    fn append_int<T: Into<u32>>(&mut self, value: T, num_bits: usize);
+    fn append_optional_int<T: Into<u32>>(&mut self, optional: Option<T>, num_bits: usize);
     fn append_bitarr<O: BitOrder, V: BitViewSized>(&mut self, array: &BitArray<O, V>);
     fn append_bitvec(&mut self, bitvec: &MyBitVec);
 }
 
 impl BitWriter for MyBitVec {
-    fn append_u32(&mut self, mut value: u32) {
+    fn append_u32(&mut self, value: u32) {
         self.append_int(value, 32);
     }
 
-    fn append_u16(&mut self, mut value: u16) {
+    fn append_u16(&mut self, value: u16) {
         self.append_int(value as u32, 16)
     }
 
@@ -192,8 +161,9 @@ impl BitWriter for MyBitVec {
         self.append_int(value as u32, 1);
     }
 
-    fn append_int(&mut self, value: u32, num_bits: usize) {
-        let mut remainder = value;
+    fn append_int<T: Into<u32>>(&mut self, value: T, num_bits: usize) {
+        let int_value: u32 = value.into();
+        let mut remainder : u32 = int_value;
         for _index in 0..num_bits {
             self.push(remainder % 2 == 1);
             remainder /= 2;
@@ -201,8 +171,20 @@ impl BitWriter for MyBitVec {
         assert_eq!(
             remainder, 0,
             "Tried to write value bigger than {} bits: {}",
-            num_bits, value
+            num_bits, int_value
         );
+    }
+
+    fn append_optional_int<T: Into<u32>>(&mut self, optional: Option<T>, num_bits: usize) {
+        match optional {
+            Some(value) => {
+                self.append_bool(true);
+                self.append_int(value, num_bits);
+            },
+            None => {
+                self.append_bool(false);
+            }
+        }
     }
 
     fn append_bitarr<O: BitOrder, V: BitViewSized>(&mut self, array: &BitArray<O, V>) {

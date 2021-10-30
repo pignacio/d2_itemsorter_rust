@@ -2,18 +2,12 @@ mod bitsy;
 mod constants;
 mod item;
 mod page;
+mod quality;
 mod stash;
 
-use bitsy::*;
 use stash::Stash;
 
-use bitvec::order::{BitOrder, Lsb0};
 use std::cmp::min;
-use std::fmt::{Display, Formatter};
-use std::thread::current;
-
-use bitvec::prelude::{bitarr, BitArr, BitArray, BitStore, BitVec, Msb0};
-use bitvec::view::BitViewSized;
 
 fn main() {
     println!("Hello, world!");

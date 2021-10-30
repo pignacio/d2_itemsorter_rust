@@ -5,9 +5,6 @@ use crate::constants;
 use bitsy::*;
 use bitvec::prelude::*;
 
-type u4 = u8;
-
-
 pub struct Item {
     header: [u8; 2],
     _unk1: MyBitVec,
@@ -22,8 +19,8 @@ pub struct Item {
     _unk5: MyBitVec,
     has_runeword: bool,
     _unk6: MyBitVec,
-    x: u4,
-    y: u4,
+    x: u8,
+    y: u8,
     _unk7: MyBitVec,
     item_type: [u8; 4],
     tail: MyBitVec,
@@ -65,8 +62,8 @@ impl Item {
         item._unk5 = bits.read_bitvec(1);
         item.has_runeword = bits.read_bool();
         item._unk6 = bits.read_bitvec(22);
-        item.x = bits.read_int(4) as u4;
-        item.y = bits.read_int(4) as u4;
+        item.x = bits.read_int(4);
+        item.y = bits.read_int(4);
         item._unk7 = bits.read_bitvec(3);
         item.item_type = bits.read_byte_arr();
         item.tail = bits.read_until(if is_last { &constants::PAGE_HEADER } else { &constants::ITEM_HEADER });
@@ -117,3 +114,13 @@ fn arr_to_chr(arr: &[u8]) -> String {
 
     return format!("[{}]", string);
 }
+
+struct ExtendedInfo {
+    gem_count: u8,
+    guid: [u8; 4],
+    drop_level: u8,
+    quality: u8,
+    gfx: Option<u8>,
+    class_info: Option<MyBitVec>,
+}
+
