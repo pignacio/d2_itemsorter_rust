@@ -67,41 +67,43 @@ impl Item {
             tail: BitVec::new(),
         };
 
-        item.header = bits.read_byte_arr();  // 16
-        item._unk1 = bits.read_bits(4);  // 20
-        item.identified = bits.read_bool();  // 21
-        item._unk2 = bits.read_bits(6);  // 27
-        let socketed = bits.read_bool();  // 28
+        item.header = bits.read_byte_arr(); // 16
+        item._unk1 = bits.read_bits(4); // 20
+        item.identified = bits.read_bool(); // 21
+        item._unk2 = bits.read_bits(6); // 27
+        let socketed = bits.read_bool(); // 28
         if socketed {
             item.num_sockets = Some(0);
         }
-        item._unk3 = bits.read_bits(9);  // 37
-        item.simple = bits.read_bool();  // 38
-        item.ethereal = bits.read_bool();  // 39
-        item._unk4 = bits.read_bits(1);  // 40
-        let inscribed = bits.read_bool();  // 41
-        item._unk5 = bits.read_bits(1);  // 42
-        let has_runeword = bits.read_bool();  // 43
-        item._unk6 = bits.read_bits(22);  // 65
-        item.x = bits.read_int(4);  // 69
-        item.y = bits.read_int(4);  // 73
-        item._unk7 = bits.read_bits(3);  // 76
-        item.item_type = bits.read_byte_arr();  // 108
+        item._unk3 = bits.read_bits(9); // 37
+        item.simple = bits.read_bool(); // 38
+        item.ethereal = bits.read_bool(); // 39
+        item._unk4 = bits.read_bits(1); // 40
+        let inscribed = bits.read_bool(); // 41
+        item._unk5 = bits.read_bits(1); // 42
+        let has_runeword = bits.read_bool(); // 43
+        item._unk6 = bits.read_bits(22); // 65
+        item.x = bits.read_int(4); // 69
+        item.y = bits.read_int(4); // 73
+        item._unk7 = bits.read_bits(3); // 76
+        item.item_type = bits.read_byte_arr(); // 108
         if !item.simple {
-            let(extended_info, gem_count) = ExtendedInfo::parse(bits, &mut item, inscribed, has_runeword);
+            let (extended_info, gem_count) =
+                ExtendedInfo::parse(bits, &mut item, inscribed, has_runeword);
             item.extended_info = Some(extended_info);
             for _ in 0..gem_count {
                 item.gems.push(0u8);
             }
         }
+        item.random_pad = bits.read_optional_byte_arr();
+        if !item.simple {}
         item.tail = bits.read_until(if is_last {
             &constants::PAGE_HEADER
         } else {
             &constants::ITEM_HEADER
         });
 
-
-        println!( "     Parsed! {}", item);
+        println!("     Parsed! {}", item);
 
         return item;
     }
@@ -138,7 +140,7 @@ impl Display for Item {
             "Item: type({}), {}{}{}{}{}, runeword:{:?}, position:({},{}) extended:{:?} specific:{:?} gems:{} tail is {} bits",
             arr_to_chr(&self.item_type),
             conditional_display(self.identified, "(id)"),
-            conditional_display(self.num_sockets.is_some(), "(os)"),
+            self.num_sockets.map(|ns| format!("({}os)", ns)).unwrap_or("".to_string()),
             conditional_display(self.simple, "(s)"),
             conditional_display(self.ethereal, "(eth)"),
             conditional_display(self.inscribed.is_some(), "(ins)"),
@@ -186,9 +188,9 @@ impl ExtendedInfo {
             class_info: None,
         };
 
-        let gem_count: u8 = bits.read_int(3);  // 3
-        info.guid = bits.read_byte_arr();  // 35
-        info.drop_level = bits.read_int(7);  // 42
+        let gem_count: u8 = bits.read_int(3); // 3
+        info.guid = bits.read_byte_arr(); // 35
+        info.drop_level = bits.read_int(7); // 42
         let quality_id: u8 = bits.read_int(4);
         info.gfx = bits.read_optional_int(3);
         info.class_info = bits.read_optional_bits(11);
@@ -214,7 +216,6 @@ impl ExtendedInfo {
         if let Some(runeword) = item.runeword {
             bitvec.append_int(runeword, 16);
         }
-
     }
 
     fn parse_quality(quality_id: u8, bits: &mut BitReader) -> Box<dyn Quality> {
@@ -233,10 +234,15 @@ impl ExtendedInfo {
 
 impl Display for ExtendedInfo {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        return write!(f,
-                      "guid:{}, iLvl:{}, q:{}, gfx:{:?} class_info:{:?}",
-                      arr_to_str(&self.guid), self.drop_level, self.quality, self.gfx, self.class_info,
-        )
+        return write!(
+            f,
+            "guid:{}, iLvl:{}, q:{}, gfx:{:?} class_info:{:?}",
+            arr_to_str(&self.guid),
+            self.drop_level,
+            self.quality,
+            self.gfx,
+            self.class_info,
+        );
     }
 }
 
@@ -261,6 +267,27 @@ struct SpecificInfo {
     max_durability: u16,
     current_durability: u16,
     quantity: u16,
+}
+
+impl SpecificInfo {
+    fn parse(bits: &mut BitReader, item: &mut Item, socketed: bool) {
+        let mut info = SpecificInfo {
+            defense: 0,
+            max_durability: 0,
+            current_durability: 0,
+            quantity: 0,
+        };
+
+        info.defense = bits.read_int(11);
+        info.max_durability = bits.read_int(9);
+        info.current_durability = bits.read_int(9);
+        if socketed {
+            item.num_sockets = Some(bits.read_int(4));
+        }
+        info.quantity = bits.read_int(9);
+    }
+
+    fn append_to(&self, bitvec: &mut MyBitVec, item: &Item) {}
 }
 
 impl Display for SpecificInfo {

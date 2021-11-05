@@ -33,6 +33,16 @@ impl BitReader {
         }
         return result;
     }
+
+    pub fn read_optional_byte_arr<const N: usize>(&mut self) -> Option<[u8; N]> {
+        let is_present = self.read_bool();
+        return if is_present {
+            Some(self.read_byte_arr())
+        } else {
+            None
+        }
+
+    }
     //
     // fn read_char_arr<const N: usize>(&mut self) -> [char; N] {
     //     let bytes: [u8; N] = self.read_byte_arr();
