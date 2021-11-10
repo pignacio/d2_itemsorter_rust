@@ -1,6 +1,7 @@
 use crate::bitsy;
 use crate::constants;
 use std::fmt::{Debug, Display, Formatter};
+use std::fs::FileType;
 
 use crate::quality::*;
 use bitsy::*;
@@ -35,10 +36,11 @@ pub struct Item {
 
 impl Item {
     pub fn parse(bits: &mut BitReader, is_last: bool) -> Item {
+        let start = bits.index();
         println!(
             "   * Parsing item. Index:{} Byte:{}",
-            bits.index(),
-            bits.index() / 8
+            start,
+            start / 8
         );
 
         let mut item = Item {
@@ -103,7 +105,30 @@ impl Item {
             &constants::ITEM_HEADER
         });
 
-        println!("     Parsed! {}", item);
+        let end = bits.index();
+        println!("     Parsed! {} bits:({}:{})", item, start, end);
+        let mut written_bits = MyBitVec::new();
+        item.append_to(&mut written_bits);
+
+        if written_bits.len() != end - start {
+            println!(
+                "Different bit count: {} vs {}",
+                written_bits.len(),
+                end - start
+            );
+        }
+        for index in 0..written_bits.len() {
+            let original_bit = bits.get(start + index);
+            let new_bit = written_bits[index];
+            if original_bit != new_bit {
+                println!(
+                    "Difference at bit #{}: {} vs {}",
+                    index, original_bit, new_bit
+                );
+                panic!();
+            }
+        }
+
 
         return item;
     }
@@ -129,6 +154,8 @@ impl Item {
         if let Some(info) = &self.extended_info {
             info.append_to(bitvec, &self);
         }
+        bitvec.append_optional_byte_arr(&self.random_pad);
+
         bitvec.append_bits(&self.tail);
     }
 }
@@ -188,13 +215,13 @@ impl ExtendedInfo {
             class_info: None,
         };
 
-        let gem_count: u8 = bits.read_int(3); // 3
-        info.guid = bits.read_byte_arr(); // 35
-        info.drop_level = bits.read_int(7); // 42
-        let quality_id: u8 = bits.read_int(4);
-        info.gfx = bits.read_optional_int(3);
-        info.class_info = bits.read_optional_bits(11);
-        info.quality = ExtendedInfo::parse_quality(quality_id, bits);
+        let gem_count: u8 = bits.read_int(3); // 3 (111)
+        info.guid = bits.read_byte_arr(); // 35 (143)
+        info.drop_level = bits.read_int(7); // 42 (150)
+        let quality_id: u8 = bits.read_int(4); // 46 (154)
+        info.gfx = bits.read_optional_int(3); // 49 (157)
+        info.class_info = bits.read_optional_bits(11); // 60 (168)
+        info.quality = ExtendedInfo::parse_quality(quality_id, bits); // ?? (???)
         if has_runeword {
             item.runeword = Some(bits.read_int(16));
         }
@@ -287,11 +314,11 @@ impl SpecificInfo {
         info.quantity = bits.read_int(9);
     }
 
-    fn append_to(&self, bitvec: &mut MyBitVec, item: &Item) {}
+    fn append_to(&self, _bitvec: &mut MyBitVec, _item: &Item) {}
 }
 
 impl Display for SpecificInfo {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
         Ok(())
     }
 }

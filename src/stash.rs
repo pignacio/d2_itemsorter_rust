@@ -53,10 +53,6 @@ impl Stash {
     }
 }
 
-fn d(size: usize) -> String {
-    return format!("{} ({})", size, size / 8);
-}
-
 impl Display for Stash {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         return write!(
