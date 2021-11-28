@@ -136,6 +136,25 @@ impl BitReader {
         None
     }
 
+    fn find_bits_match_index(&self, sentinel: &MyBitVec) -> Option<usize> {
+        let bit_start_index = self.index;
+        // println!("Searching for match: {} from index: {} [bit:{}]", arr_to_str(sentinel), byte_start_index, self.index);
+        let mut current_match_size: usize = 0;
+        for index in bit_start_index..(8 * self.bytes.len()) {
+            let bit = self.get(index);
+            if bit == sentinel[current_match_size] {
+                // println!("Partial match! index:{}, current match:{}, next byte:{}", index, current_match_size, self.bytes[index + 1]);
+                current_match_size += 1;
+                if current_match_size == sentinel.len() {
+                    return Some(index + 1);
+                }
+            } else {
+                current_match_size = 0;
+            }
+        }
+        None
+    }
+
     pub fn read_until(&mut self, sentinel: &[u8]) -> MyBitVec {
         let start = self.index;
 
@@ -150,6 +169,20 @@ impl BitReader {
             }
             _ => {
                 self.index = self.bits.len();
+                self.bits[start..].to_bitvec()
+            }
+        };
+    }
+
+    pub fn read_until_bits(&mut self, sentinel: &MyBitVec) -> MyBitVec {
+        let start = self.index;
+        return match self.find_bits_match_index(sentinel) {
+            Some(index) => {
+                self.index = index;
+                self.bits[start..self.index].to_bitvec()
+            }
+            _ => {
+                self.bits.len();
                 self.bits[start..].to_bitvec()
             }
         };
@@ -245,4 +278,12 @@ impl BitWriter for MyBitVec {
             }
         }
     }
+}
+
+pub fn bitvec_init(value: bool, bits: usize) -> MyBitVec {
+    let mut result = MyBitVec::new();
+    for _ in 0..bits {
+        result.push(value);
+    }
+    return result;
 }
