@@ -1,8 +1,9 @@
-use std::fmt::{Display, Formatter};
 use crate::bitsy::*;
-use crate::item::Item;
 use crate::constants;
+use crate::item::reader::ItemReader;
+use crate::item::Item;
 use bitvec::prelude::BitVec;
+use std::fmt::{Display, Formatter};
 
 pub struct Page {
     header: [u8; 5],
@@ -11,7 +12,7 @@ pub struct Page {
 }
 
 impl Page {
-    pub fn parse(bits: &mut BitReader) -> Page {
+    pub fn parse(bits: &mut ItemReader) -> Page {
         let mut page = Page {
             header: [0; 5],
             items: Vec::new(),

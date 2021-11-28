@@ -1,9 +1,12 @@
 use std::fmt::{Display, Formatter};
-use crate::bitsy;
-use crate::page::Page;
 
 use bitvec::prelude::*;
+
 use bitsy::*;
+
+use crate::bitsy;
+use crate::item::reader::ItemReader;
+use crate::page::Page;
 
 pub struct Stash {
     header: [u8; 6],
@@ -23,20 +26,18 @@ impl Stash {
         };
     }
 
-    pub fn parse(bytes: Vec<u8>) -> Stash {
-        let mut bitreader = BitReader::new(bytes);
-
+    pub fn parse(mut itemreader: ItemReader) -> Stash {
         let mut stash = Stash::new();
 
-        stash.header = bitreader.read_byte_arr();
-        bitreader.read_into_bitarr(32, &mut stash._unk1);
-        let page_count = bitreader.read_int(32);
+        stash.header = itemreader.read_byte_arr();
+        itemreader.read_into_bitarr(32, &mut stash._unk1);
+        let page_count = itemreader.read_int(32);
         println!("Page count: {}", page_count);
         for _ in 0..page_count {
-            stash.pages.push(Page::parse(&mut bitreader));
+            stash.pages.push(Page::parse(&mut itemreader));
             println!("Parsed page: {}", stash.pages.last().unwrap())
         }
-        stash.tail = bitreader.tail();
+        stash.tail = itemreader.tail();
         return stash;
     }
 
@@ -51,10 +52,6 @@ impl Stash {
         bitvec.append_bits(&self.tail);
         return bitvec.into_vec();
     }
-}
-
-fn d(size: usize) -> String {
-    return format!("{} ({})", size, size / 8);
 }
 
 impl Display for Stash {

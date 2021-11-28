@@ -1,3 +1,12 @@
+use std::cmp::min;
+use std::rc::Rc;
+
+use stash::Stash;
+
+use crate::bitsy::BitReader;
+use crate::item::info::ItemDb;
+use crate::item::reader::ItemReader;
+
 mod bitsy;
 mod constants;
 mod item;
@@ -5,16 +14,18 @@ mod page;
 mod quality;
 mod stash;
 
-use stash::Stash;
-
-use std::cmp::min;
-
 fn main() {
     println!("Hello, world!");
 
     let bytes = std::fs::read("stash_example.sss").unwrap();
 
-    let stash = Stash::parse(bytes.to_vec());
+    let item_db: Rc<dyn ItemDb> = Rc::new(item::info::MapItemDb::from_data_dir("data/items"));
+
+    println!("{:?}", item_db.get_info("brs "));
+
+    let itemreader = ItemReader::new(BitReader::new(bytes.to_vec()), Rc::clone(&item_db));
+    // let stash = Stash::parse(bytes.to_vec(), item_db);
+    let stash = Stash::parse(itemreader);
 
     let new_bytes = stash.to_bytes();
 
@@ -40,7 +51,7 @@ fn main() {
     }
 }
 
-fn show(stash: Stash) {
+pub fn show(stash: Stash) {
     println!("Stash: {}", stash);
     for (index, page) in stash.pages.iter().enumerate() {
         println!(" - Page #{}: {}", index, page);

@@ -1,7 +1,7 @@
 use crate::bitsy::*;
 use std::fmt::{Display, Formatter};
 
-pub trait Quality : Display {
+pub trait Quality: Display {
     fn quality_id(&self) -> u8;
     fn write_quality_bytes(&self, bitvec: &mut MyBitVec);
     fn read_quality_bytes(id: u8, bitreader: &mut BitReader) -> Box<dyn Quality>
@@ -15,9 +15,7 @@ pub struct NormalQuality {
 
 impl NormalQuality {
     pub fn default() -> NormalQuality {
-        return NormalQuality {
-            id: 15,
-        }
+        return NormalQuality { id: 15 };
     }
 }
 
@@ -217,7 +215,6 @@ pub struct UniqueQuality {
 }
 
 impl Quality for UniqueQuality {
-
     fn quality_id(&self) -> u8 {
         return 7;
     }
