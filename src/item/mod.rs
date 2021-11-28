@@ -175,7 +175,7 @@ impl Display for Item {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Item: {}({}){}, {}{}{}{}, runeword:{:?}, position:({},{}) extended:{} specific:{} gems:{} tail is {} bits ({})",
+            "Item: {}({}){}{}{}{}{}{}, pos:({},{}) extended:{} specific:{} gems:{} tail is {} bits ({})",
             self.item_info.name,
             arr_to_chr(&self.item_type),
             conditional_display(!self.identified, "u"),
@@ -183,7 +183,7 @@ impl Display for Item {
             conditional_display(self.simple, "(s)"),
             conditional_display(self.ethereal, "(eth)"),
             conditional_display(self.inscribed.is_some(), "(ins)"),
-            self.runeword,
+            self.runeword.map(|rw| format!("(rw:{})", rw)).unwrap_or("".to_string()),
             self.x,
             self.y,
             self.extended_info.as_ref().map(|info| format!("[{}]", info)).unwrap_or("None".to_string()),
