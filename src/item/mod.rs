@@ -1,11 +1,18 @@
+use std::fmt::{Debug, Display, Formatter};
+
+use bitvec::prelude::*;
+
+use bitsy::*;
+
 use crate::bitsy;
 use crate::constants;
-use std::fmt::{Debug, Display, Formatter};
-use std::fs::FileType;
-
+use crate::item::info::ItemInfo;
+use crate::item::reader::ItemReader;
 use crate::quality::*;
-use bitsy::*;
-use bitvec::prelude::*;
+
+pub mod info;
+pub mod properties;
+pub mod reader;
 
 pub struct Item {
     header: [u8; 2],
@@ -25,6 +32,7 @@ pub struct Item {
     y: u8,
     _unk7: MyBitVec,
     item_type: [u8; 4],
+    item_info: ItemInfo,
     extended_info: Option<ExtendedInfo>,
     random_pad: Option<[u8; 12]>,
     specific_info: Option<SpecificInfo>,
@@ -35,13 +43,9 @@ pub struct Item {
 }
 
 impl Item {
-    pub fn parse(bits: &mut BitReader, is_last: bool) -> Item {
+    pub fn parse(bits: &mut ItemReader, is_last: bool) -> Item {
         let start = bits.index();
-        println!(
-            "   * Parsing item. Index:{} Byte:{}",
-            start,
-            start / 8
-        );
+        println!("   * Parsing item. Index:{} Byte:{}", start, start / 8);
 
         let mut item = Item {
             header: [0; 2],
@@ -61,6 +65,7 @@ impl Item {
             y: 0,
             _unk7: BitVec::repeat(false, 3),
             item_type: [0; 4],
+            item_info: ItemInfo::default(),
             extended_info: None,
             random_pad: None,
             specific_info: None,
@@ -89,6 +94,9 @@ impl Item {
         item.y = bits.read_int(4); // 73
         item._unk7 = bits.read_bits(3); // 76
         item.item_type = bits.read_byte_arr(); // 108
+        item.item_info = bits
+            .item_db()
+            .get_info(std::str::from_utf8(&item.item_type).unwrap());
         if !item.simple {
             let (extended_info, gem_count) =
                 ExtendedInfo::parse(bits, &mut item, inscribed, has_runeword);
@@ -98,7 +106,9 @@ impl Item {
             }
         }
         item.random_pad = bits.read_optional_byte_arr();
-        if !item.simple {}
+        if !item.simple {
+            item.specific_info = Some(SpecificInfo::parse(bits, &mut item, socketed));
+        }
         item.tail = bits.read_until(if is_last {
             &constants::PAGE_HEADER
         } else {
@@ -129,7 +139,6 @@ impl Item {
             }
         }
 
-
         return item;
     }
 
@@ -155,7 +164,9 @@ impl Item {
             info.append_to(bitvec, &self);
         }
         bitvec.append_optional_byte_arr(&self.random_pad);
-
+        self.specific_info
+            .as_ref()
+            .map(|info| info.append_to(bitvec, &self));
         bitvec.append_bits(&self.tail);
     }
 }
@@ -164,9 +175,10 @@ impl Display for Item {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Item: type({}), {}{}{}{}{}, runeword:{:?}, position:({},{}) extended:{:?} specific:{:?} gems:{} tail is {} bits",
+            "Item: {}({}){}, {}{}{}{}, runeword:{:?}, position:({},{}) extended:{} specific:{} gems:{} tail is {} bits ({})",
+            self.item_info.name,
             arr_to_chr(&self.item_type),
-            conditional_display(self.identified, "(id)"),
+            conditional_display(!self.identified, "u"),
             self.num_sockets.map(|ns| format!("({}os)", ns)).unwrap_or("".to_string()),
             conditional_display(self.simple, "(s)"),
             conditional_display(self.ethereal, "(eth)"),
@@ -174,12 +186,17 @@ impl Display for Item {
             self.runeword,
             self.x,
             self.y,
-            self.extended_info,
-            self.specific_info,
+            self.extended_info.as_ref().map(|info| format!("[{}]", info)).unwrap_or("None".to_string()),
+            self.specific_info.as_ref().map(|info| format!("[{}]", info)).unwrap_or("None".to_string()),
             self.gems.len(),
-            self.tail.len()
+            self.tail.len(),
+            if is_padding(&self.tail) { "OK".to_string() } else { format!("NOK ({})", &self.tail[..std::cmp::min(32, self.tail.len())]) }
         )
     }
+}
+
+fn is_padding(tail: &MyBitVec) -> bool {
+    return tail.len() < 8 && tail.not_any();
 }
 
 fn conditional_display(condition: bool, display: &str) -> &str {
@@ -189,7 +206,7 @@ fn conditional_display(condition: bool, display: &str) -> &str {
 fn arr_to_chr(arr: &[u8]) -> String {
     let string = arr.iter().map(|x| *x as char).collect::<String>();
 
-    return format!("[{}]", string);
+    return format!("{}", string);
 }
 
 struct ExtendedInfo {
@@ -263,12 +280,15 @@ impl Display for ExtendedInfo {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         return write!(
             f,
-            "guid:{}, iLvl:{}, q:{}, gfx:{:?} class_info:{:?}",
-            arr_to_str(&self.guid),
+            "guid:{}, iLvl:{}, q:{}, gfx:{:?} class_info:{}",
+            to_hex(&self.guid),
             self.drop_level,
             self.quality,
             self.gfx,
-            self.class_info,
+            self.class_info
+                .as_ref()
+                .map(|x| format!("{}", x))
+                .unwrap_or("None".to_string()),
         );
     }
 }
@@ -279,47 +299,70 @@ impl Debug for ExtendedInfo {
     }
 }
 
-fn arr_to_str(arr: &[u8]) -> String {
-    let string = arr
+fn to_hex(arr: &[u8]) -> String {
+    return arr
         .iter()
-        .map(|value| format!("{}, ", value))
+        .map(|value| format!("{:X?}", value))
         .collect::<String>();
-
-    return format!("[{}]", string);
 }
 
 #[derive(Debug)]
 struct SpecificInfo {
-    defense: u16,
-    max_durability: u16,
-    current_durability: u16,
-    quantity: u16,
+    defense: Option<u16>,
+    max_durability: Option<u16>,
+    current_durability: Option<u16>,
+    quantity: Option<u16>,
 }
 
 impl SpecificInfo {
-    fn parse(bits: &mut BitReader, item: &mut Item, socketed: bool) {
+    fn parse(bits: &mut BitReader, item: &mut Item, socketed: bool) -> SpecificInfo {
         let mut info = SpecificInfo {
-            defense: 0,
-            max_durability: 0,
-            current_durability: 0,
-            quantity: 0,
+            defense: None,
+            max_durability: None,
+            current_durability: None,
+            quantity: None,
         };
 
-        info.defense = bits.read_int(11);
-        info.max_durability = bits.read_int(9);
-        info.current_durability = bits.read_int(9);
+        if item.item_info.has_defense {
+            info.defense = Some(bits.read_int(11));
+        }
+        if item.item_info.has_durability {
+            info.max_durability = Some(bits.read_int(9));
+            info.current_durability = Some(bits.read_int(9));
+        }
         if socketed {
             item.num_sockets = Some(bits.read_int(4));
         }
-        info.quantity = bits.read_int(9);
+        if item.item_info.has_quantity {
+            info.quantity = Some(bits.read_int(9));
+        }
+        return info;
     }
 
-    fn append_to(&self, _bitvec: &mut MyBitVec, _item: &Item) {}
+    fn append_to(&self, bitvec: &mut MyBitVec, item: &Item) {
+        self.defense.map(|x| bitvec.append_int(x, 11));
+        self.max_durability.map(|x| bitvec.append_int(x, 9));
+        self.current_durability.map(|x| bitvec.append_int(x, 9));
+        item.num_sockets.map(|x| bitvec.append_int(x, 4));
+        self.quantity.map(|x| bitvec.append_int(x, 9));
+    }
 }
 
 impl Display for SpecificInfo {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        Ok(())
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        return write!(
+            f,
+            "{}{}{}",
+            self.defense
+                .map(|x| { format!("Def:{} ", x) })
+                .unwrap_or(String::default()),
+            self.max_durability
+                .map(|x| { format!("Dur:{}/{} ", self.current_durability.unwrap_or(0), x) })
+                .unwrap_or(String::default()),
+            self.quantity
+                .map(|x| { format!("Qty:{} ", x) })
+                .unwrap_or(String::default()),
+        );
     }
 }
 

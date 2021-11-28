@@ -44,8 +44,7 @@ impl BitReader {
             Some(self.read_byte_arr())
         } else {
             None
-        }
-
+        };
     }
     //
     // fn read_char_arr<const N: usize>(&mut self) -> [char; N] {
@@ -86,7 +85,7 @@ impl BitReader {
             Some(self.read_bits(num_bits))
         } else {
             None
-        }
+        };
     }
 
     pub fn read_bool(&mut self) -> bool {
@@ -106,7 +105,7 @@ impl BitReader {
         }
 
         self.index += num_bits;
-        return T::try_from(res).unwrap_or_else(|_| { panic!("Int did not fit")});
+        return T::try_from(res).unwrap_or_else(|_| panic!("Int did not fit"));
     }
 
     pub fn read_optional_int<T: TryFrom<u32>>(&mut self, num_bits: usize) -> Option<T> {
@@ -115,7 +114,7 @@ impl BitReader {
             Some(self.read_int(num_bits))
         } else {
             None
-        }
+        };
     }
 
     fn find_match_index(&self, sentinel: &[u8]) -> Option<usize> {
@@ -171,7 +170,7 @@ pub trait BitWriter {
     fn append_bits(&mut self, bitvec: &MyBitVec);
     fn append_optional_bits(&mut self, optional: &Option<MyBitVec>);
     fn append_optional_byte_arr<const N: usize>(&mut self, optional: &Option<[u8; N]>);
-    }
+}
 
 impl BitWriter for MyBitVec {
     fn append_u32(&mut self, value: u32) {
@@ -188,7 +187,7 @@ impl BitWriter for MyBitVec {
 
     fn append_int<T: Into<u32>>(&mut self, value: T, num_bits: usize) {
         let int_value: u32 = value.into();
-        let mut remainder : u32 = int_value;
+        let mut remainder: u32 = int_value;
         for _index in 0..num_bits {
             self.push(remainder % 2 == 1);
             remainder /= 2;
@@ -205,7 +204,7 @@ impl BitWriter for MyBitVec {
             Some(value) => {
                 self.append_bool(true);
                 self.append_int(value, num_bits);
-            },
+            }
             None => {
                 self.append_bool(false);
             }
@@ -228,7 +227,7 @@ impl BitWriter for MyBitVec {
             Some(bits) => {
                 self.append_bool(true);
                 self.append_bits(&bits);
-            },
+            }
             None => {
                 self.append_bool(false);
             }
@@ -240,7 +239,7 @@ impl BitWriter for MyBitVec {
             Some(bits) => {
                 self.append_bool(true);
                 self.extend_from_raw_slice(bits);
-            },
+            }
             None => {
                 self.append_bool(false);
             }
