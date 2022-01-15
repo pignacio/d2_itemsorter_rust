@@ -1,7 +1,7 @@
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 
-use crate::bitsy::BitReader;
+use crate::bitsy::{BitReader, MyBitVec};
 use crate::item::info::ItemDb;
 use crate::item::properties::PropertyDb;
 
@@ -22,6 +22,10 @@ impl ItemReader {
             item_db,
             property_db,
         };
+    }
+
+    pub fn peek_bits(&self, size: usize) -> String {
+        return self.reader.peek_bits(size);
     }
 
     pub fn item_db(&self) -> Rc<dyn ItemDb> {

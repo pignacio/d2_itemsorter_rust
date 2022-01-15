@@ -49,19 +49,26 @@ impl MapItemDb {
 
     pub fn from_data_dir<P: AsRef<Path>>(path: P) -> MapItemDb {
         let mut item_db = MapItemDb::new();
-        item_db.add_items_from_csv(path.as_ref().join("armors.csv"), true, true, false);
-        item_db.add_items_from_csv(path.as_ref().join("belts.csv"), true, true, false);
-        item_db.add_items_from_csv(path.as_ref().join("boots.csv"), true, true, false);
-        item_db.add_items_from_csv(path.as_ref().join("gems.csv"), false, false, false);
-        item_db.add_items_from_csv(path.as_ref().join("gloves.csv"), true, true, false);
-        item_db.add_items_from_csv(path.as_ref().join("helmets.csv"), true, true, false);
-        item_db.add_items_from_csv(path.as_ref().join("items.csv"), false, false, false);
-        item_db.add_items_from_csv(path.as_ref().join("runes.csv"), false, false, false);
-        item_db.add_items_from_csv(path.as_ref().join("shields.csv"), true, true, false);
-        item_db.add_items_from_csv(path.as_ref().join("souls.csv"), false, false, false);
-        item_db.add_items_from_csv(path.as_ref().join("stack.csv"), false, false, true);
-        item_db.add_items_from_csv(path.as_ref().join("stack-weapons.csv"), false, false, true);
-        item_db.add_items_from_csv(path.as_ref().join("weapons.csv"), false, false, false);
+        let path_ref = path.as_ref();
+        item_db.add_items_from_csv(path_ref.join("armors.csv"), true, true, false);
+        item_db.add_items_from_csv(path_ref.join("belts.csv"), true, true, false);
+        item_db.add_items_from_csv(path_ref.join("boots.csv"), true, true, false);
+        item_db.add_items_from_csv(path_ref.join("gems.csv"), false, false, false);
+        item_db.add_items_from_csv(path_ref.join("gloves.csv"), true, true, false);
+        item_db.add_items_from_csv(path_ref.join("helmets.csv"), true, true, false);
+        item_db.add_items_from_csv(path_ref.join("items.csv"), false, false, false);
+        item_db.add_items_from_csv(path_ref.join("runes.csv"), false, false, false);
+        item_db.add_items_from_csv(path_ref.join("shields.csv"), true, true, false);
+        item_db.add_items_from_csv(path_ref.join("souls.csv"), false, false, false);
+        item_db.add_items_from_csv(path_ref.join("stack.csv"), false, false, true);
+        item_db.add_items_from_csv(path_ref.join("stack-weapons.csv"), true, false, true);
+        item_db.add_items_from_csv(path_ref.join("weapons.csv"), true, false, false);
+        item_db.add_items_from_csv(
+            path_ref.join("weapons-indestructible.csv"),
+            false,
+            false,
+            false,
+        );
         return item_db;
     }
 

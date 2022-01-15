@@ -7,6 +7,7 @@ use bitsy::*;
 use crate::bitsy;
 use crate::constants;
 use crate::item::info::ItemInfo;
+use crate::item::properties::PropertyList;
 use crate::item::reader::ItemReader;
 use crate::quality::*;
 
@@ -45,8 +46,7 @@ pub struct Item {
 impl Item {
     pub fn parse(bits: &mut ItemReader, is_last: bool) -> Item {
         let start = bits.index();
-        println!("   * Parsing item. Index:{} Byte:{}", start, start / 8);
-
+        println!("Item initial  bits:{}", bits.peek_bits(512));
         let mut item = Item {
             header: [0; 2],
             _unk1: BitVec::repeat(false, 4),
@@ -108,6 +108,7 @@ impl Item {
         item.random_pad = bits.read_optional_byte_arr();
         if !item.simple {
             item.specific_info = Some(SpecificInfo::parse(bits, &mut item, socketed));
+            item.item_properties = Some(ItemProperties::parse(bits, &item))
         }
         item.tail = bits.read_until(if is_last {
             &constants::PAGE_HEADER
@@ -116,7 +117,13 @@ impl Item {
         });
 
         let end = bits.index();
-        println!("     Parsed! {} bits:({}:{})", item, start, end);
+        println!(
+            "     Parsed! {} bits:({}:{}, len:{})",
+            item,
+            start,
+            end,
+            end - start
+        );
         let mut written_bits = MyBitVec::new();
         item.append_to(&mut written_bits);
 
@@ -167,6 +174,9 @@ impl Item {
         self.specific_info
             .as_ref()
             .map(|info| info.append_to(bitvec, &self));
+        self.item_properties
+            .as_ref()
+            .map(|props| props.append_to(bitvec, &self));
         bitvec.append_bits(&self.tail);
     }
 }
@@ -367,10 +377,53 @@ impl Display for SpecificInfo {
 }
 
 struct ItemProperties {
-    set_properties: SetProperties,
-    properties: Vec<Box<dyn Property>>,
+    properties: PropertyList,
+    set_properties: [Option<PropertyList>; 5],
 }
 
-struct SetProperties {}
+impl ItemProperties {
+    pub fn parse(reader: &mut ItemReader, item: &Item) -> Self {
+        println!("Property initial  bits: {}", reader.peek_bits(128));
+        let mut has_set_props = [false; 5];
+        if ItemProperties::is_set_item(item) {
+            println!("Parsing set properties bits @{}", reader.index());
+            has_set_props = has_set_props.map(|_| reader.read_bool());
+        }
+        println!("Parsing properties bits @{}", reader.index());
+        let properties = PropertyList::parse(reader);
+        let set_properties = has_set_props.map(|should_parse| {
+            if should_parse {
+                println!("Parsing set properties @{}", reader.index());
+                Some(PropertyList::parse(reader))
+            } else {
+                None
+            }
+        });
 
-trait Property {}
+        ItemProperties {
+            properties,
+            set_properties,
+        }
+    }
+
+    fn is_set_item(item: &Item) -> bool {
+        let quality_id = item
+            .extended_info
+            .as_ref()
+            .map(|info| info.quality.quality_id())
+            .unwrap();
+        return quality_id == SET_QUALITY_ID;
+    }
+
+    pub fn append_to(&self, bit_vec: &mut MyBitVec, item: &Item) {
+        if ItemProperties::is_set_item(item) {
+            for opt in &self.set_properties {
+                bit_vec.append_bool(opt.is_some());
+            }
+        }
+        self.properties.append_to(bit_vec);
+        for opt in &self.set_properties {
+            opt.as_ref().map(|props| props.append_to(bit_vec));
+        }
+    }
+}

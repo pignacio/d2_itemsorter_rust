@@ -6,6 +6,12 @@ use bitvec::view::BitViewSized;
 pub type MyBitOrder = Lsb0;
 pub type MyBitVec = BitVec<MyBitOrder, u8>;
 
+pub fn bit_view(bit_vec: &MyBitVec, start: usize, size: usize) -> String {
+    bit_vec[start..std::cmp::min(start + size, bit_vec.len())]
+        .to_string()
+        .replace(", ", "")
+}
+
 pub struct BitReader {
     bytes: Vec<u8>,
     bits: MyBitVec,
@@ -27,6 +33,14 @@ impl BitReader {
 
     pub fn index(&self) -> usize {
         return self.index;
+    }
+
+    pub fn len(&self) -> usize {
+        return self.bits.len();
+    }
+
+    pub fn peek_bits(&self, size: usize) -> String {
+        bit_view(&self.bits, self.index, size)
     }
 
     pub fn read_byte_arr<const N: usize>(&mut self) -> [u8; N] {
@@ -140,13 +154,13 @@ impl BitReader {
         let bit_start_index = self.index;
         // println!("Searching for match: {} from index: {} [bit:{}]", arr_to_str(sentinel), byte_start_index, self.index);
         let mut current_match_size: usize = 0;
-        for index in bit_start_index..(8 * self.bytes.len()) {
+        for index in bit_start_index..self.bits.len() {
             let bit = self.get(index);
             if bit == sentinel[current_match_size] {
                 // println!("Partial match! index:{}, current match:{}, next byte:{}", index, current_match_size, self.bytes[index + 1]);
                 current_match_size += 1;
                 if current_match_size == sentinel.len() {
-                    return Some(index + 1);
+                    return Some(index - sentinel.len() + 1);
                 }
             } else {
                 current_match_size = 0;
