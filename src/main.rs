@@ -5,7 +5,7 @@ use stash::Stash;
 
 use crate::bitsy::BitReader;
 use crate::item::info::ItemDb;
-use crate::item::properties::{MapPropertyDb, Property, PropertyDb};
+use crate::item::properties::MapPropertyDb;
 use crate::item::reader::ItemReader;
 
 mod bitsy;

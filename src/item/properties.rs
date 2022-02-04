@@ -1,8 +1,7 @@
+use std::char::MAX;
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::ops::Deref;
-
-use bitvec::bitvec;
-use bitvec::prelude::Lsb0;
 
 use crate::bitsy::*;
 use crate::item::reader::ItemReader;
@@ -11,8 +10,8 @@ const TERMINATOR_ID: u16 = 0b111111111;
 const PROPERTY_ID_SIZE: usize = 9;
 
 pub struct PropertyList {
-    properties: Vec<Property>,
-    tail: MyBitVec,
+    pub properties: Vec<Property>,
+    pub tail: MyBitVec,
 }
 
 impl Deref for PropertyList {
@@ -36,13 +35,13 @@ impl PropertyList {
 
             if let Some(definition) = reader.property_db().get_definition(id) {
                 let values = definition.parse_values(reader);
-                println!(
-                    "Found property {}: {}. Values: {:?}",
-                    id, definition.text, values
-                );
+                // println!(
+                //     "Found property {}: {}. Values: {:?}",
+                //     id, definition.text, values
+                // );
                 properties.push(Property { values, definition })
             } else {
-                println!("Unknown property id: {}", id);
+                // println!("Unknown property id: {}", id);
                 tail.append_int(id, PROPERTY_ID_SIZE);
                 tail.extend_from_bitslice(
                     reader
@@ -51,8 +50,8 @@ impl PropertyList {
                 );
                 // Read the terminator ID and discard.
                 reader.read_int::<u16>(PROPERTY_ID_SIZE);
-                println!("Tail has size {}: {}", tail.len(), tail);
-                println!("Next bits are: {}", reader.peek_bits(32));
+                // println!("Tail has size {}: {}", tail.len(), tail);
+                // println!("Next bits are: {}", reader.peek_bits(32));
                 break;
             }
         }
@@ -67,6 +66,10 @@ impl PropertyList {
         bitvec.extend_from_bitslice(&self.tail);
         bitvec.append_int(TERMINATOR_ID, PROPERTY_ID_SIZE);
     }
+
+    pub fn tail_is_padding(&self) -> bool {
+        return self.tail.len() < 8 && self.tail.not_any();
+    }
 }
 
 pub struct Property {
@@ -74,18 +77,40 @@ pub struct Property {
     values: Values,
 }
 
+impl Property {
+    pub fn definition(&self) -> &PropertyDef {
+        &self.definition
+    }
+}
+
+impl Display for Property {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Property: {}, values:{}",
+            self.definition.text,
+            self.values.map(|x| x.to_string()).join(", ")
+        )?;
+        Ok(())
+    }
+}
+
 const MAX_PROPERTY_VALUES: usize = 4;
 
 type Values = [i32; MAX_PROPERTY_VALUES];
 
 #[derive(Clone, Debug)]
-struct PropertyDef {
+pub struct PropertyDef {
     id: u16,
     text: String,
     values: [ValueDef; MAX_PROPERTY_VALUES],
 }
 
 impl PropertyDef {
+    pub fn id(&self) -> u16 {
+        self.id
+    }
+    
     fn parse_values(&self, reader: &mut ItemReader) -> Values {
         let mut result = [0i32; MAX_PROPERTY_VALUES];
         for index in 0..MAX_PROPERTY_VALUES {
@@ -164,6 +189,7 @@ impl PropertyDb for MapPropertyDb {
 }
 
 impl MapPropertyDb {
+    #[allow(unused_assignments)]
     #[rustfmt::skip]
     pub fn new() -> Self {
         let mut db = MapPropertyDb {
@@ -235,7 +261,7 @@ impl MapPropertyDb {
         db.add(PropertyDef::new(102, "{:+d}% Faster Block Rate", defs![8(20)]));
         db.add(PropertyDef::new(105, "{:+d}% Faster Cast Rate", defs![9(50)]));
         db.add(PropertyDef::new(107, "+{1:d} to Skill<{0:d}> (Class Only) [107]", defs![10, 7]));
-        db.add(PropertyDef::new(108, "Slain Monster Rest in Peace <{:+d}>%", defs![3]));
+        db.add(PropertyDef::new(108, "Slain Monster Rest in Peace <{:+d}>%", defs![1]));
         db.add(PropertyDef::new(109, "Shorter Curse Duration {:+d}%", defs![9(100)]));
         db.add(PropertyDef::new(110, "Poison Length Reduced by {:d}%", defs![8(20)]));
         db.add(PropertyDef::new(112, "Hit Causes Monster to Flee {:d}%", defs![7(10)]));
@@ -251,6 +277,7 @@ impl MapPropertyDb {
         db.add(PropertyDef::new(122, "{:+d}% Damage to Undead", defs![12(20)]));
         db.add(PropertyDef::new(123, "{:+d} to Attack Rating against Demons", defs![13(128)]));
         db.add(PropertyDef::new(124, "{:+d} to Attack Rating against Undead", defs![13(128)]));
+        db.add(PropertyDef::new(126, "+{1:d} to SkillTree<{0:d}>", defs![3, 6]));
         db.add(PropertyDef::new(127, "+{:d} to All Skills", defs![5]));
         db.add(PropertyDef::new(128, "Attacker Takes Lightning Damage of {:+d}", defs![16]));
         db.add(PropertyDef::new(134, "Freezes Target <{:d}>", defs![5]));
@@ -279,6 +306,8 @@ impl MapPropertyDb {
         db.add(PropertyDef::new(158, "Fires Explosive Arrows or Bolds <{:d}>", defs![7]));
         db.add(PropertyDef::new(159, "{:+d} to Minimum Damage", defs![9]));
         db.add(PropertyDef::new(160, "{:+d} to Maximum Damage", defs![10]));
+        db.add(PropertyDef::new(179, "{1:+d}% to Damage/AR against EnemyClass<{0:d}>", defs![10, 12]));
+        db.add(PropertyDef::new(180, "{1:+d}% to AR/Damage against EnemyClass<{0:d}>", defs![10, 12]));
         db.add(PropertyDef::new(181, "[?][181] ??? <{:d}>", defs![9]));
         db.add(PropertyDef::new(188, "+{1:d} to Skill<{0:d}> [188][?]", defs![16, 3]));
         db.add(PropertyDef::new(195, "{2:d}% Chance to cast Level {0:d} Skill<{1:d}> on attack", defs![6, 10, 7]));

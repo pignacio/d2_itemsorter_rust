@@ -1,7 +1,7 @@
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 
-use crate::bitsy::{BitReader, MyBitVec};
+use crate::bitsy::BitReader;
 use crate::item::info::ItemDb;
 use crate::item::properties::PropertyDb;
 

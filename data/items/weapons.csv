@@ -13,6 +13,7 @@ id,name,width,height
 9ha ,Hatchet,1,3
 9kr ,Cinquedeas,1,3
 9ma ,Flanged Mace,1,3
+9mt ,War Staff,2,4
 9sp ,Barbed Club,1,3
 9sr ,War Spear,2,4
 9ss ,Gladius,1,3
@@ -43,11 +44,14 @@ clw ,Claw,1,3
 crs ,Cristal Sword,2,3
 cst ,Gnarled Staff,1,4
 dir ,Dirk,1,2
+e01 ,Energy Sabre,1,4
 fla ,Flail,2,3
 flb ,Flamberge,2,4
 flc ,Falchion,1,3
 gis ,Giant Sword,1,4
+gma ,Great Maul,2,3
 gsc ,Grand Scepter,1,3
+gwn ,Grim Wand,1,2
 h21 ,Handgun,2,2
 hal ,Halberd,2,4
 hbw ,Hunter's Bow,2,3

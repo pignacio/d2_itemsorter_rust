@@ -63,12 +63,6 @@ impl MapItemDb {
         item_db.add_items_from_csv(path_ref.join("stack.csv"), false, false, true);
         item_db.add_items_from_csv(path_ref.join("stack-weapons.csv"), true, false, true);
         item_db.add_items_from_csv(path_ref.join("weapons.csv"), true, false, false);
-        item_db.add_items_from_csv(
-            path_ref.join("weapons-indestructible.csv"),
-            false,
-            false,
-            false,
-        );
         return item_db;
     }
 
