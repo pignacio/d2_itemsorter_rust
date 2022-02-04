@@ -5,6 +5,7 @@ use stash::Stash;
 
 use crate::bitsy::BitReader;
 use crate::item::info::ItemDb;
+use crate::item::properties::MapPropertyDb;
 use crate::item::reader::ItemReader;
 
 mod bitsy;
@@ -23,7 +24,11 @@ fn main() {
 
     println!("{:?}", item_db.get_info("brs "));
 
-    let itemreader = ItemReader::new(BitReader::new(bytes.to_vec()), Rc::clone(&item_db));
+    let itemreader = ItemReader::new(
+        BitReader::new(bytes.to_vec()),
+        Rc::clone(&item_db),
+        Rc::new(MapPropertyDb::new()),
+    );
     // let stash = Stash::parse(bytes.to_vec(), item_db);
     let stash = Stash::parse(itemreader);
 

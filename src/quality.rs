@@ -1,6 +1,8 @@
 use crate::bitsy::*;
 use std::fmt::{Display, Formatter};
 
+pub const SET_QUALITY_ID: u8 = 5;
+
 pub trait Quality: Display {
     fn quality_id(&self) -> u8;
     fn write_quality_bytes(&self, bitvec: &mut MyBitVec);
@@ -129,7 +131,7 @@ pub struct SetQuality {
 
 impl Quality for SetQuality {
     fn quality_id(&self) -> u8 {
-        return 5;
+        return SET_QUALITY_ID;
     }
 
     fn write_quality_bytes(&self, bitvec: &mut MyBitVec) {
@@ -137,7 +139,7 @@ impl Quality for SetQuality {
     }
 
     fn read_quality_bytes(id: u8, bitreader: &mut BitReader) -> Box<dyn Quality> {
-        assert_eq!(id, 5, "Set quality should have id = 5");
+        assert_eq!(id, SET_QUALITY_ID, "Set quality should have id = 5");
         return Box::new(SetQuality {
             set_id: bitreader.read_int(12),
         });

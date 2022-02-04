@@ -28,6 +28,13 @@ impl Page {
             bits.index() / 8
         );
         for index in 0..item_count {
+            // println!(
+            //     "   * Parsing item {}/{}. Index:{} Byte:{}",
+            //     index + 1,
+            //     item_count,
+            //     bits.index(),
+            //     bits.index() / 8
+            // );
             let last: bool = index == item_count - 1;
             page.items.push(Item::parse(bits, last));
         }
