@@ -13,7 +13,7 @@ pub struct ItemInfo {
 }
 
 impl ItemInfo {
-    fn default(id: &str) -> Self {
+    fn default_with_id(id: &str) -> Self {
         return ItemInfo {
             id: id.to_string(),
             name: "?????????".to_string(),
@@ -28,7 +28,7 @@ impl ItemInfo {
 
 impl Default for ItemInfo {
     fn default() -> Self {
-        return ItemInfo::default("????");
+        return ItemInfo::default_with_id("????");
     }
 }
 

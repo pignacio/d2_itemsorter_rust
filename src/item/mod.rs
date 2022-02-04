@@ -1,5 +1,4 @@
 use std::fmt::{Debug, Display, Formatter};
-use std::io::Read;
 
 use bitvec::prelude::*;
 

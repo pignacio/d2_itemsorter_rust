@@ -1,4 +1,3 @@
-use std::char::MAX;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::ops::Deref;
