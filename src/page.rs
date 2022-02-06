@@ -1,10 +1,11 @@
 use crate::bitsy::*;
 use crate::constants;
+use crate::constants::PAGE_HEADER;
 use crate::item::reader::ItemReader;
 use crate::item::Item;
-use bitvec::prelude::BitVec;
 use std::fmt::{Display, Formatter};
 
+#[derive(Clone)]
 pub struct Page {
     header: [u8; 5],
     pub items: Vec<Item>,
@@ -12,12 +13,16 @@ pub struct Page {
 }
 
 impl Page {
-    pub fn parse(bits: &mut ItemReader) -> Page {
-        let mut page = Page {
-            header: [0; 5],
+    pub fn new() -> Self {
+        Page {
+            header: PAGE_HEADER,
             items: Vec::new(),
-            tail: BitVec::new(),
-        };
+            tail: MyBitVec::new(),
+        }
+    }
+
+    pub fn parse(bits: &mut ItemReader) -> Page {
+        let mut page = Page::new();
 
         page.header = bits.read_byte_arr();
         let item_count = bits.read_int(16);

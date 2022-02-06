@@ -8,6 +8,7 @@ use crate::item::reader::ItemReader;
 const TERMINATOR_ID: u16 = 0b111111111;
 const PROPERTY_ID_SIZE: usize = 9;
 
+#[derive(Clone)]
 pub struct PropertyList {
     pub properties: Vec<Property>,
     pub tail: MyBitVec,
@@ -71,6 +72,7 @@ impl PropertyList {
     }
 }
 
+#[derive(Clone)]
 pub struct Property {
     definition: PropertyDef,
     values: Values,

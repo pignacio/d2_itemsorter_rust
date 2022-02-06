@@ -22,8 +22,6 @@ fn main() {
 
     let item_db: Rc<dyn ItemDb> = Rc::new(item::info::MapItemDb::from_data_dir("data/items"));
 
-    println!("{:?}", item_db.get_info("brs "));
-
     let itemreader = ItemReader::new(
         BitReader::new(bytes.to_vec()),
         Rc::clone(&item_db),

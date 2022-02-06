@@ -9,12 +9,14 @@ use crate::constants;
 use crate::item::info::ItemInfo;
 use crate::item::properties::PropertyList;
 use crate::item::reader::ItemReader;
+use crate::quality;
 use crate::quality::*;
 
 pub mod info;
 pub mod properties;
 pub mod reader;
 
+#[derive(Clone)]
 pub struct Item {
     header: [u8; 2],
     _unk1: MyBitVec,
@@ -255,10 +257,11 @@ fn arr_to_chr(arr: &[u8]) -> String {
     return format!("{}", string);
 }
 
+#[derive(Clone)]
 struct ExtendedInfo {
     guid: [u8; 4],
     drop_level: u8,
-    quality: Box<dyn Quality>,
+    quality: EnumQuality,
     gfx: Option<u8>,
     class_info: Option<MyBitVec>,
 }
@@ -273,7 +276,7 @@ impl ExtendedInfo {
         let mut info = ExtendedInfo {
             guid: [0u8; 4],
             drop_level: 0,
-            quality: Box::new(NormalQuality::default()),
+            quality: EnumQuality::Normal{ id : 15},
             gfx: None,
             class_info: None,
         };
@@ -308,17 +311,9 @@ impl ExtendedInfo {
         }
     }
 
-    fn parse_quality(quality_id: u8, bits: &mut BitReader) -> Box<dyn Quality> {
-        match quality_id {
-            1 => LowQuality::read_quality_bytes(quality_id, bits),
-            3 => HighQuality::read_quality_bytes(quality_id, bits),
-            4 => MagicQuality::read_quality_bytes(quality_id, bits),
-            5 => SetQuality::read_quality_bytes(quality_id, bits),
-            6 => RareQuality::read_quality_bytes(quality_id, bits),
-            7 => UniqueQuality::read_quality_bytes(quality_id, bits),
-            8 => RareQuality::read_quality_bytes(quality_id, bits),
-            _ => NormalQuality::read_quality_bytes(quality_id, bits),
-        }
+    fn parse_quality(quality_id: u8, bits: &mut BitReader) -> EnumQuality {
+        let parsed = EnumQuality::read_quality_bytes(quality_id, bits);
+        parsed
     }
 }
 
@@ -352,7 +347,7 @@ fn to_hex(arr: &[u8]) -> String {
         .collect::<String>();
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct SpecificInfo {
     defense: Option<u16>,
     max_durability: Option<u16>,
@@ -415,6 +410,7 @@ impl Display for SpecificInfo {
     }
 }
 
+#[derive(Clone)]
 struct ItemProperties {
     properties: PropertyList,
     set_properties: [Option<PropertyList>; 5],
