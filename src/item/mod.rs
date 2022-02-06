@@ -15,6 +15,7 @@ use crate::quality::*;
 pub mod info;
 pub mod properties;
 pub mod reader;
+pub mod pager;
 
 #[derive(Clone)]
 pub struct Item {
