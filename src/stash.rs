@@ -35,7 +35,12 @@ impl Stash {
         println!("Page count: {}", page_count);
         for index in 0..page_count {
             stash.pages.push(Page::parse(&mut itemreader));
-            println!("Parsed page {}/{}: {}", index + 1, page_count, stash.pages.last().unwrap())
+            println!(
+                "Parsed page {}/{}: {}",
+                index + 1,
+                page_count,
+                stash.pages.last().unwrap()
+            )
         }
         stash.tail = itemreader.tail();
         return stash;

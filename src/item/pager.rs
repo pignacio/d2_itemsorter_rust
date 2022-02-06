@@ -9,22 +9,16 @@ struct ItemPager {
 
 impl ItemPager {
     fn new() -> Self {
-        ItemPager{
+        ItemPager {
             pages: Vec::new(),
-            current_page: Page::new()
+            current_page: Page::new(),
         }
     }
-    fn add_item(&mut self, item: Item) {
+    fn add_item(&mut self, item: Item) {}
 
-    }
+    fn split_line(&mut self) {}
 
-    fn split_line(&mut self) {
-
-    }
-
-    fn split_page(&mut self) {
-
-    }
+    fn split_page(&mut self) {}
 
     fn get_pages(&self) -> Vec<Page> {
         let mut pages = self.pages.to_vec();

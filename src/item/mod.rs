@@ -13,9 +13,9 @@ use crate::quality;
 use crate::quality::*;
 
 pub mod info;
+pub mod pager;
 pub mod properties;
 pub mod reader;
-pub mod pager;
 
 #[derive(Clone)]
 pub struct Item {
@@ -166,7 +166,11 @@ impl Item {
                     " * First possible values: {}",
                     values.map(|x| x.to_string()).join(", ")
                 );
-            } else if properties.properties.iter().any(|p| p.definition().id() == 11157) {
+            } else if properties
+                .properties
+                .iter()
+                .any(|p| p.definition().id() == 11157)
+            {
                 println!("Debugging item: {}", item);
                 properties.properties.properties.iter().for_each(|prop| {
                     println!("* {}", prop);
@@ -277,7 +281,7 @@ impl ExtendedInfo {
         let mut info = ExtendedInfo {
             guid: [0u8; 4],
             drop_level: 0,
-            quality: EnumQuality::Normal{ id : 15},
+            quality: EnumQuality::Normal { id: 15 },
             gfx: None,
             class_info: None,
         };
