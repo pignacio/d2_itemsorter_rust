@@ -1,4 +1,3 @@
-use std::char::MAX;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::ops::Deref;
@@ -110,7 +109,7 @@ impl PropertyDef {
     pub fn id(&self) -> u16 {
         self.id
     }
-    
+
     fn parse_values(&self, reader: &mut ItemReader) -> Values {
         let mut result = [0i32; MAX_PROPERTY_VALUES];
         for index in 0..MAX_PROPERTY_VALUES {

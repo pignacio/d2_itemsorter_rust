@@ -1,5 +1,4 @@
 use std::fmt::{Debug, Display, Formatter};
-use std::io::Read;
 
 use bitvec::prelude::*;
 
@@ -164,7 +163,11 @@ impl Item {
                     " * First possible values: {}",
                     values.map(|x| x.to_string()).join(", ")
                 );
-            } else if properties.properties.iter().any(|p| p.definition().id() == 11157) {
+            } else if properties
+                .properties
+                .iter()
+                .any(|p| p.definition().id() == 11157)
+            {
                 println!("Debugging item: {}", item);
                 properties.properties.properties.iter().for_each(|prop| {
                     println!("* {}", prop);
