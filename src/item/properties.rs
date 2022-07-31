@@ -86,7 +86,8 @@ impl Display for Property {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Property: {}, values:{}",
+            "Property[{:3}]: {}, values:{}",
+            self.definition.id,
             self.definition.text,
             self.values.map(|x| x.to_string()).join(", ")
         )?;
