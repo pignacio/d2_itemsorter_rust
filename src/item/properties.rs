@@ -109,29 +109,29 @@ impl PropertyDef {
     pub fn id(&self) -> u16 {
         self.id
     }
-    
+
     fn parse_values(&self, reader: &mut ItemReader) -> Values {
         let mut result = [0i32; MAX_PROPERTY_VALUES];
-        for index in 0..MAX_PROPERTY_VALUES {
+        result.iter_mut().enumerate().for_each(|(index, property)| {
             let definition = self.values[index];
             if definition.size > 0 {
                 let value: u32 = reader.read_int(definition.size);
-                result[index] = value as i32 - definition.offset as i32;
+                *property = value as i32 - definition.offset as i32;
             }
-        }
+        });
         result
     }
 
     fn append_values(&self, values: Values, bits: &mut MyBitVec) {
-        for index in 0..MAX_PROPERTY_VALUES {
+        values.iter().enumerate().for_each(|(index, property)| {
             let definition = self.values[index];
             if definition.size > 0 {
                 bits.append_int(
-                    (values[index] + definition.offset as i32) as u32,
+                    (property + definition.offset as i32) as u32,
                     definition.size,
                 );
             }
-        }
+        });
     }
 
     fn new<S: AsRef<str>>(id: u16, text: S, values: [ValueDef; MAX_PROPERTY_VALUES]) -> Self {
@@ -143,13 +143,11 @@ impl PropertyDef {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
-#[derive(Default)]
+#[derive(Copy, Clone, Debug, Default)]
 struct ValueDef {
     size: usize,
     offset: usize,
 }
-
 
 #[macro_export]
 macro_rules! defs {

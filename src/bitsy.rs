@@ -46,9 +46,7 @@ impl BitReader {
     pub fn read_byte_arr<const N: usize>(&mut self) -> [u8; N] {
         let mut result = [0; N];
 
-        for index in 0..N {
-            result[index] = self.read_int(8);
-        }
+        result.iter_mut().for_each(|x| *x = self.read_int(8));
         result
     }
 
@@ -213,7 +211,6 @@ pub trait BitWriter {
     fn append_bool(&mut self, value: bool);
     fn append_int<T: Into<u32>>(&mut self, value: T, num_bits: usize);
     fn append_optional_int<T: Into<u32>>(&mut self, optional: Option<T>, num_bits: usize);
-    fn append_bitarr<O: BitOrder, V: BitViewSized>(&mut self, array: &BitArray<O, V>);
     fn append_bits(&mut self, bitvec: &MyBitVec);
     fn append_optional_bits(&mut self, optional: &Option<MyBitVec>);
     fn append_optional_byte_arr<const N: usize>(&mut self, optional: &Option<[u8; N]>);
@@ -256,11 +253,6 @@ impl BitWriter for MyBitVec {
                 self.append_bool(false);
             }
         }
-    }
-
-    fn append_bitarr<O: BitOrder, V: BitViewSized>(&mut self, array: &BitArray<O, V>) {
-        println!("Array length: {}", array.len());
-        panic!();
     }
 
     fn append_bits(&mut self, bitvec: &MyBitVec) {
