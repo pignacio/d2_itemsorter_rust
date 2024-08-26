@@ -40,7 +40,7 @@ impl Page {
         }
         page.tail = bits.read_until(&constants::PAGE_HEADER);
 
-        return page;
+        page
     }
 
     pub fn append_to(&self, bitvec: &mut MyBitVec) {
@@ -55,11 +55,11 @@ impl Page {
 
 impl Display for Page {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        return write!(
+        write!(
             f,
             "I'm a page with {} items. Tail has {} bits",
             self.items.len(),
             self.tail.len()
-        );
+        )
     }
 }

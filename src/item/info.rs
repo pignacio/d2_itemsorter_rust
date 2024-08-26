@@ -14,7 +14,7 @@ pub struct ItemInfo {
 
 impl ItemInfo {
     fn default(id: &str) -> Self {
-        return ItemInfo {
+        ItemInfo {
             id: id.to_string(),
             name: "?????????".to_string(),
             height: None,
@@ -22,13 +22,13 @@ impl ItemInfo {
             has_durability: false,
             has_defense: false,
             has_quantity: false,
-        };
+        }
     }
 }
 
 impl Default for ItemInfo {
     fn default() -> Self {
-        return ItemInfo::default("????");
+        ItemInfo::default("????")
     }
 }
 
@@ -42,9 +42,9 @@ pub struct MapItemDb {
 
 impl MapItemDb {
     pub fn new() -> MapItemDb {
-        return MapItemDb {
+        MapItemDb {
             item_infos: HashMap::new(),
-        };
+        }
     }
 
     pub fn from_data_dir<P: AsRef<Path>>(path: P) -> MapItemDb {
@@ -63,7 +63,7 @@ impl MapItemDb {
         item_db.add_items_from_csv(path_ref.join("stack.csv"), false, false, true);
         item_db.add_items_from_csv(path_ref.join("stack-weapons.csv"), true, false, true);
         item_db.add_items_from_csv(path_ref.join("weapons.csv"), true, false, false);
-        return item_db;
+        item_db
     }
 
     fn add_items_from_csv<P: AsRef<Path>>(
@@ -102,10 +102,9 @@ impl MapItemDb {
 impl ItemDb for MapItemDb {
     fn get_info(&self, id: &str) -> ItemInfo {
         self.item_infos
-            .get(id)
-            .map(|x| x.clone())
+            .get(id).cloned()
             .unwrap_or_else(|| {
-                return ItemInfo {
+                ItemInfo {
                     id: id.to_string(),
                     name: "?????????".to_string(),
                     height: None,
@@ -113,7 +112,7 @@ impl ItemDb for MapItemDb {
                     has_durability: false,
                     has_defense: false,
                     has_quantity: false,
-                };
+                }
             })
     }
 }

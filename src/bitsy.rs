@@ -20,23 +20,23 @@ pub struct BitReader {
 
 impl BitReader {
     pub fn new(bytes: Vec<u8>) -> BitReader {
-        return BitReader {
+        BitReader {
             bytes: bytes.to_vec(),
             bits: BitVec::from_vec(bytes),
             index: 0,
-        };
+        }
     }
 
     pub fn get(&self, index: usize) -> bool {
-        return self.bits[index];
+        self.bits[index]
     }
 
     pub fn index(&self) -> usize {
-        return self.index;
+        self.index
     }
 
     pub fn len(&self) -> usize {
-        return self.bits.len();
+        self.bits.len()
     }
 
     pub fn peek_bits(&self, size: usize) -> String {
@@ -49,16 +49,16 @@ impl BitReader {
         for index in 0..N {
             result[index] = self.read_int(8);
         }
-        return result;
+        result
     }
 
     pub fn read_optional_byte_arr<const N: usize>(&mut self) -> Option<[u8; N]> {
         let is_present = self.read_bool();
-        return if is_present {
+        if is_present {
             Some(self.read_byte_arr())
         } else {
             None
-        };
+        }
     }
     //
     // fn read_char_arr<const N: usize>(&mut self) -> [char; N] {
@@ -90,20 +90,20 @@ impl BitReader {
             bitvec.push(*bit);
         }
         self.index += size;
-        return bitvec;
+        bitvec
     }
 
     pub fn read_optional_bits(&mut self, num_bits: usize) -> Option<MyBitVec> {
         let is_present = self.read_bool();
-        return if is_present {
+        if is_present {
             Some(self.read_bits(num_bits))
         } else {
             None
-        };
+        }
     }
 
     pub fn read_bool(&mut self) -> bool {
-        return self.read_int::<u32>(1) != 0;
+        self.read_int::<u32>(1) != 0
     }
 
     pub fn read_int<T: TryFrom<u32>>(&mut self, num_bits: usize) -> T {
@@ -119,16 +119,16 @@ impl BitReader {
         }
 
         self.index += num_bits;
-        return T::try_from(res).unwrap_or_else(|_| panic!("Int did not fit"));
+        T::try_from(res).unwrap_or_else(|_| panic!("Int did not fit"))
     }
 
     pub fn read_optional_int<T: TryFrom<u32>>(&mut self, num_bits: usize) -> Option<T> {
         let is_present = self.read_bool();
-        return if is_present {
+        if is_present {
             Some(self.read_int(num_bits))
         } else {
             None
-        };
+        }
     }
 
     fn find_match_index(&self, sentinel: &[u8]) -> Option<usize> {
@@ -172,7 +172,7 @@ impl BitReader {
     pub fn read_until(&mut self, sentinel: &[u8]) -> MyBitVec {
         let start = self.index;
 
-        return match self.find_match_index(sentinel) {
+        match self.find_match_index(sentinel) {
             Some(index) => {
                 self.index = index * 8;
                 // println!(
@@ -185,12 +185,12 @@ impl BitReader {
                 self.index = self.bits.len();
                 self.bits[start..].to_bitvec()
             }
-        };
+        }
     }
 
     pub fn read_until_bits(&mut self, sentinel: &MyBitVec) -> MyBitVec {
         let start = self.index;
-        return match self.find_bits_match_index(sentinel) {
+        match self.find_bits_match_index(sentinel) {
             Some(index) => {
                 self.index = index;
                 self.bits[start..self.index].to_bitvec()
@@ -199,11 +199,11 @@ impl BitReader {
                 self.bits.len();
                 self.bits[start..].to_bitvec()
             }
-        };
+        }
     }
 
     pub fn tail(&mut self) -> MyBitVec {
-        return self.bits[self.index..].to_bitvec();
+        self.bits[self.index..].to_bitvec()
     }
 }
 
@@ -273,7 +273,7 @@ impl BitWriter for MyBitVec {
         match optional {
             Some(bits) => {
                 self.append_bool(true);
-                self.append_bits(&bits);
+                self.append_bits(bits);
             }
             None => {
                 self.append_bool(false);
@@ -299,5 +299,5 @@ pub fn bitvec_init(value: bool, bits: usize) -> MyBitVec {
     for _ in 0..bits {
         result.push(value);
     }
-    return result;
+    result
 }

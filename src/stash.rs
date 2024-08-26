@@ -18,12 +18,12 @@ pub struct Stash {
 impl Stash {
     fn new() -> Stash {
         let unk1 = bitarr![MyBitOrder, u8; 0; 32];
-        return Stash {
+        Stash {
             header: [0; 6],
             _unk1: unk1,
             pages: Vec::new(),
             tail: BitVec::new(),
-        };
+        }
     }
 
     pub fn parse(mut itemreader: ItemReader) -> Stash {
@@ -38,7 +38,7 @@ impl Stash {
             println!("Parsed page {}/{}: {}", index + 1, page_count, stash.pages.last().unwrap())
         }
         stash.tail = itemreader.tail();
-        return stash;
+        stash
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -50,17 +50,17 @@ impl Stash {
             page.append_to(&mut bitvec);
         }
         bitvec.append_bits(&self.tail);
-        return bitvec.into_vec();
+        bitvec.into_vec()
     }
 }
 
 impl Display for Stash {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        return write!(
+        write!(
             f,
             "I'm a stash with {} pages. Tail has {} bits",
             self.pages.len(),
             self.tail.len()
-        );
+        )
     }
 }

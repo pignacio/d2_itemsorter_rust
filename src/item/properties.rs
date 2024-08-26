@@ -1,4 +1,3 @@
-use std::char::MAX;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::ops::Deref;
@@ -18,7 +17,7 @@ impl Deref for PropertyList {
     type Target = Vec<Property>;
 
     fn deref(&self) -> &Self::Target {
-        return &self.properties;
+        &self.properties
     }
 }
 
@@ -55,7 +54,7 @@ impl PropertyList {
                 break;
             }
         }
-        return PropertyList { properties, tail };
+        PropertyList { properties, tail }
     }
 
     pub fn append_to(&self, bitvec: &mut MyBitVec) {
@@ -68,7 +67,7 @@ impl PropertyList {
     }
 
     pub fn tail_is_padding(&self) -> bool {
-        return self.tail.len() < 8 && self.tail.not_any();
+        self.tail.len() < 8 && self.tail.not_any()
     }
 }
 
@@ -120,7 +119,7 @@ impl PropertyDef {
                 result[index] = value as i32 - definition.offset as i32;
             }
         }
-        return result;
+        result
     }
 
     fn append_values(&self, values: Values, bits: &mut MyBitVec) {
@@ -145,16 +144,12 @@ impl PropertyDef {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[derive(Default)]
 struct ValueDef {
     size: usize,
     offset: usize,
 }
 
-impl Default for ValueDef {
-    fn default() -> Self {
-        ValueDef { size: 0, offset: 0 }
-    }
-}
 
 #[macro_export]
 macro_rules! defs {
@@ -184,7 +179,7 @@ pub struct MapPropertyDb {
 
 impl PropertyDb for MapPropertyDb {
     fn get_definition(&self, id: u16) -> Option<PropertyDef> {
-        return self.properties.get(&id).map(|x| x.clone());
+        return self.properties.get(&id).cloned();
     }
 }
 
@@ -370,7 +365,7 @@ impl MapPropertyDb {
         db.add(PropertyDef::new(505, "+{:d} Extra duration (in frames) to portable shrines", defs![15]));
         db.add(PropertyDef::new(508, "Boosts Summon Damage by {:d}%", defs![12]));
 
-        return db;
+        db
     }
 
     fn add(&mut self, def: PropertyDef) {

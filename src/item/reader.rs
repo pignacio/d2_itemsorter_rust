@@ -17,15 +17,15 @@ impl ItemReader {
         item_db: Rc<dyn ItemDb>,
         property_db: Rc<dyn PropertyDb>,
     ) -> Self {
-        return ItemReader {
+        ItemReader {
             reader,
             item_db,
             property_db,
-        };
+        }
     }
 
     pub fn peek_bits(&self, size: usize) -> String {
-        return self.reader.peek_bits(size);
+        self.reader.peek_bits(size)
     }
 
     pub fn item_db(&self) -> Rc<dyn ItemDb> {
