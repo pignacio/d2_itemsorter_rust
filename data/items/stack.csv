@@ -6,4 +6,6 @@ id,name,width,height
 07b ,Handgun Bullets,1,1
 aqv ,Arrows,1,3
 cqv ,Bolts,1,3
+ibk ,Book of Identify,1,2
 key ,Key,1,1
+tbk ,Book of Town Portal,1,2
