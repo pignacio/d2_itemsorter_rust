@@ -22,7 +22,7 @@ pub struct Item {
     _unk2: MyBitVec,
     num_sockets: Option<u8>,
     _unk3: MyBitVec,
-    simple: bool,
+    pub simple: bool,
     ethereal: bool,
     _unk4: MyBitVec,
     inscribed: Option<Vec<u8>>,
@@ -46,7 +46,6 @@ pub struct Item {
 impl Item {
     pub fn parse(bits: &mut ItemReader, is_last: bool) -> Item {
         let start = bits.index();
-        // println!("Item initial  bits:{}", bits.peek_bits(512));
         let mut item = Item {
             header: [0; 2],
             _unk1: BitVec::repeat(false, 4),
@@ -74,6 +73,7 @@ impl Item {
             tail: BitVec::new(),
         };
 
+        println!("Item initial  bits:{}", bits.peek_bits(512));
         item.header = bits.read_byte_arr(); // 16
         item._unk1 = bits.read_bits(4); // 20
         item.identified = bits.read_bool(); // 21
@@ -96,7 +96,7 @@ impl Item {
         item.item_type = bits.read_byte_arr(); // 108
         item.item_info = bits
             .item_db()
-            .get_info(std::str::from_utf8(&item.item_type).unwrap());
+            .get_info(std::str::from_utf8(&item.item_type).unwrap_or("xxxx"));
         if !item.simple {
             let (extended_info, gem_count) =
                 ExtendedInfo::parse(bits, &mut item, inscribed, has_runeword);
@@ -107,7 +107,17 @@ impl Item {
         }
         item.random_pad = bits.read_optional_byte_arr();
         if !item.simple {
+            println!(
+                "Item info: {:?} Next: {}",
+                item.item_info,
+                bits.peek_bits(128)
+            );
             item.specific_info = Some(SpecificInfo::parse(bits, &mut item, socketed));
+            println!(
+                "Specific info: {:?} Next: {}",
+                item.specific_info,
+                bits.peek_bits(128)
+            );
             item.item_properties = Some(ItemProperties::parse(bits, &item));
         }
         item.tail = bits.read_until(if is_last {
@@ -182,7 +192,7 @@ impl Item {
         if bit_vec.len() <= skip {
             return -1;
         }
-        let mut reader = BitReader::new(bit_vec.to_bitvec().into_vec());
+        let mut reader = BitVecReader::new(bit_vec.to_bitvec().into_vec());
         if 0 < skip {
             let _ignored: u32 = reader.read_int(skip);
         }
@@ -273,7 +283,7 @@ struct ExtendedInfo {
 
 impl ExtendedInfo {
     pub fn parse(
-        bits: &mut BitReader,
+        bits: &mut BitVecReader,
         item: &mut Item,
         inscribed: bool,
         has_runeword: bool,
@@ -316,7 +326,7 @@ impl ExtendedInfo {
         }
     }
 
-    fn parse_quality(quality_id: u8, bits: &mut BitReader) -> Box<dyn Quality> {
+    fn parse_quality(quality_id: u8, bits: &mut BitVecReader) -> Box<dyn Quality> {
         match quality_id {
             1 => LowQuality::read_quality_bytes(quality_id, bits),
             3 => HighQuality::read_quality_bytes(quality_id, bits),
@@ -369,7 +379,7 @@ struct SpecificInfo {
 }
 
 impl SpecificInfo {
-    fn parse(bits: &mut BitReader, item: &mut Item, socketed: bool) -> SpecificInfo {
+    fn parse(bits: &mut BitVecReader, item: &mut Item, socketed: bool) -> SpecificInfo {
         let mut info = SpecificInfo {
             defense: None,
             max_durability: None,
@@ -472,5 +482,51 @@ impl ItemProperties {
         for opt in &self.set_properties {
             opt.as_ref().map(|props| props.append_to(bit_vec));
         }
+    }
+}
+
+struct ItemList {
+    items: Vec<Item>,
+}
+
+#[cfg(test)]
+mod tests {
+    use std::rc::Rc;
+
+    use info::MapItemDb;
+    use properties::MapPropertyDb;
+
+    use super::*;
+
+    fn test_read(bytes: &[u8]) {
+        let mut itemreader = ItemReader::new(
+            BitVecReader::new(bytes.to_vec()),
+            Rc::new(MapItemDb::from_data_dir("data/items")),
+            Rc::new(MapPropertyDb::new()),
+        );
+
+        print!("Bits: {}", itemreader.peek_bits(1024));
+
+        println!("{}", Item::parse(&mut itemreader, true));
+    }
+
+    #[test]
+    fn it_works() {
+        test_read(&[
+            0x4A, 0x4D, 0x10, 0x00, 0x80, 0x00, 0x65, 0x00, 0x92, 0x42, 0x27, 0xB6, 0x06, 0x02,
+            0xFD, 0x42, 0xA5, 0x6D, 0x86, 0x00, 0x90, 0xF9, 0x0F,
+        ]);
+    }
+
+    #[test]
+    fn d2r_item() {
+        test_read(&[
+            0x4A, 0x4D, 0x07, 0x00, 0x10, 0x20, 0xA2, 0x00, 0x15, 0x00, 0x00, 0xCF, 0x4F, 0x00,
+            0x10, 0x20, 0xA2, 0x00, 0x15, 0x04, 0x00, 0xCF, 0x4F, 0x00, 0x10, 0x20, 0xA2, 0x00,
+            0x15, 0x08, 0x00, 0xCF, 0x4F, 0x00, 0x10, 0x20, 0xA2, 0x00, 0x15, 0x0C, 0x00, 0xCF,
+            0x4F, 0x00, 0x10, 0x20, 0xA2, 0x00, 0x05, 0xE4, 0xC4, 0x90, 0x08, 0x10, 0x20, 0xA2,
+            0x00, 0x05, 0xA4, 0xE4, 0x47, 0x22, 0x10, 0x20, 0x82, 0x00, 0x0D, 0x11, 0x80, 0xC8,
+            0x04, 0xEC, 0x2E, 0x91, 0xDE, 0x80, 0x80, 0x82, 0xC2, 0x1A, 0x12, 0xF9, 0x0F,
+        ]);
     }
 }

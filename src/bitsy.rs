@@ -1,4 +1,6 @@
+use std::cmp::min;
 use std::convert::TryFrom;
+use std::fmt::Display;
 
 use bitvec::prelude::*;
 use bitvec::view::BitViewSized;
@@ -12,15 +14,28 @@ pub fn bit_view(bit_vec: &MyBitVec, start: usize, size: usize) -> String {
         .replace(", ", "")
 }
 
-pub struct BitReader {
+pub struct BitVecReader {
     bytes: Vec<u8>,
     bits: MyBitVec,
     index: usize,
 }
 
-impl BitReader {
-    pub fn new(bytes: Vec<u8>) -> BitReader {
-        BitReader {
+impl Display for BitVecReader {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "BitReader(@bit {} of {}, byte {} of {})",
+            self.index,
+            self.bits.len(),
+            self.index / 8,
+            self.bytes.len()
+        )
+    }
+}
+
+impl BitVecReader {
+    pub fn new(bytes: Vec<u8>) -> BitVecReader {
+        BitVecReader {
             bytes: bytes.to_vec(),
             bits: BitVec::from_vec(bytes),
             index: 0,
@@ -41,13 +56,6 @@ impl BitReader {
 
     pub fn peek_bits(&self, size: usize) -> String {
         bit_view(&self.bits, self.index, size)
-    }
-
-    pub fn read_byte_arr<const N: usize>(&mut self) -> [u8; N] {
-        let mut result = [0; N];
-
-        result.iter_mut().for_each(|x| *x = self.read_int(8));
-        result
     }
 
     pub fn read_optional_byte_arr<const N: usize>(&mut self) -> Option<[u8; N]> {
@@ -82,15 +90,6 @@ impl BitReader {
         self.index += size;
     }
 
-    pub fn read_bits(&mut self, size: usize) -> MyBitVec {
-        let mut bitvec = BitVec::new();
-        for bit in self.bits[self.index..].iter().take(size) {
-            bitvec.push(*bit);
-        }
-        self.index += size;
-        bitvec
-    }
-
     pub fn read_optional_bits(&mut self, num_bits: usize) -> Option<MyBitVec> {
         let is_present = self.read_bool();
         if is_present {
@@ -102,22 +101,6 @@ impl BitReader {
 
     pub fn read_bool(&mut self) -> bool {
         self.read_int::<u32>(1) != 0
-    }
-
-    pub fn read_int<T: TryFrom<u32>>(&mut self, num_bits: usize) -> T {
-        assert!(num_bits <= 32, "Support for ints > 32 bits missing");
-        let mut res: u32 = 0;
-        let mut multiplier = 1;
-
-        for index in 0..num_bits {
-            res += self.bits[self.index + index] as u32 * multiplier;
-            if index < 31 {
-                multiplier *= 2;
-            }
-        }
-
-        self.index += num_bits;
-        T::try_from(res).unwrap_or_else(|_| panic!("Int did not fit"))
     }
 
     pub fn read_optional_int<T: TryFrom<u32>>(&mut self, num_bits: usize) -> Option<T> {
@@ -166,8 +149,64 @@ impl BitReader {
         }
         None
     }
+}
 
-    pub fn read_until(&mut self, sentinel: &[u8]) -> MyBitVec {
+pub trait BitReader {
+    fn read_byte_arr<const N: usize>(&mut self) -> [u8; N];
+    fn read_int<T: TryFrom<u32>>(&mut self, num_bits: usize) -> T;
+    fn read_bits(&mut self, size: usize) -> MyBitVec;
+    fn read_padding(&mut self);
+    fn read_until(&mut self, sentinel: &[u8]) -> MyBitVec;
+    fn read_until_bits(&mut self, sentinel: &MyBitVec) -> MyBitVec;
+    fn tail(&mut self) -> MyBitVec;
+    fn read_versioned<T: VersionedBitsy>(&mut self, version: u32) -> T;
+    fn read<T: Bitsy>(&mut self) -> T;
+
+    fn report_next_bytes(&self, num_bytes: usize);
+}
+
+impl BitReader for BitVecReader {
+    fn read_byte_arr<const N: usize>(&mut self) -> [u8; N] {
+        let mut result = [0; N];
+
+        result.iter_mut().for_each(|x| *x = self.read_int(8));
+        result
+    }
+
+    fn read_int<T: TryFrom<u32>>(&mut self, num_bits: usize) -> T {
+        assert!(num_bits <= 32, "Support for ints > 32 bits missing");
+        let max_bits = std::mem::size_of::<T>() * 8;
+        assert!(
+            num_bits <= max_bits,
+            "Type {} cannot hold {} bits. Max: {}",
+            std::any::type_name::<T>(),
+            num_bits,
+            max_bits
+        );
+        let mut res: u32 = 0;
+        let mut multiplier = 1;
+
+        for index in 0..num_bits {
+            res += self.bits[self.index + index] as u32 * multiplier;
+            if index < 31 {
+                multiplier *= 2;
+            }
+        }
+
+        self.index += num_bits;
+        T::try_from(res).unwrap_or_else(|_| panic!("Int did not fit"))
+    }
+
+    fn read_bits(&mut self, size: usize) -> MyBitVec {
+        let mut bitvec = BitVec::new();
+        for bit in self.bits[self.index..].iter().take(size) {
+            bitvec.push(*bit);
+        }
+        self.index += size;
+        bitvec
+    }
+
+    fn read_until(&mut self, sentinel: &[u8]) -> MyBitVec {
         let start = self.index;
 
         match self.find_match_index(sentinel) {
@@ -186,7 +225,7 @@ impl BitReader {
         }
     }
 
-    pub fn read_until_bits(&mut self, sentinel: &MyBitVec) -> MyBitVec {
+    fn read_until_bits(&mut self, sentinel: &MyBitVec) -> MyBitVec {
         let start = self.index;
         match self.find_bits_match_index(sentinel) {
             Some(index) => {
@@ -200,12 +239,52 @@ impl BitReader {
         }
     }
 
-    pub fn tail(&mut self) -> MyBitVec {
+    fn read_padding(&mut self) {
+        let size = (8 - self.index % 8) % 8;
+        let padding = self.read_bits(size);
+        if padding.any() {
+            panic!("Padding@{} is not zero: {}", self.index - size, padding);
+        }
+    }
+
+    fn tail(&mut self) -> MyBitVec {
         self.bits[self.index..].to_bitvec()
+    }
+
+    fn read_versioned<T: VersionedBitsy>(&mut self, version: u32) -> T {
+        T::parse(self, version)
+    }
+
+    fn read<T: Bitsy>(&mut self) -> T {
+        T::parse(self)
+    }
+
+    fn report_next_bytes(&self, num_bytes: usize) {
+        println!("Report of {}", self);
+        if self.index % 8 != 0 {
+            println!(
+                "Unfinished byte @ {}: {}",
+                self.index,
+                self.peek_bits(8 - self.index % 8)
+            );
+        }
+        let start_byte = self.index / 8 + if self.index % 8 == 0 { 0 } else { 1 };
+        let end_byte = min(start_byte + num_bytes, self.bytes.len());
+        for index in start_byte..end_byte {
+            let byte = self.bytes[index];
+            println!(
+                "Byte@{}: {:3} 0x{:02X} {}",
+                index,
+                byte,
+                byte,
+                &self.bits[index * 8..index * 8 + 8]
+            );
+            //lala
+        }
     }
 }
 
-pub trait BitWriter {
+pub trait BitWriter: Sized {
     fn append_u32(&mut self, value: u32);
     fn append_u16(&mut self, value: u16);
     fn append_bool(&mut self, value: bool);
@@ -214,6 +293,12 @@ pub trait BitWriter {
     fn append_bits(&mut self, bitvec: &MyBitVec);
     fn append_optional_bits(&mut self, optional: &Option<MyBitVec>);
     fn append_optional_byte_arr<const N: usize>(&mut self, optional: &Option<[u8; N]>);
+    fn append_byte_arr<const N: usize>(&mut self, array: &[u8; N]);
+    fn append_padding(&mut self);
+
+    fn append<T: BitWritable>(&mut self, value: &T) {
+        value.append_to(self);
+    }
 }
 
 impl BitWriter for MyBitVec {
@@ -284,6 +369,16 @@ impl BitWriter for MyBitVec {
             }
         }
     }
+
+    fn append_byte_arr<const N: usize>(&mut self, array: &[u8; N]) {
+        self.extend_from_raw_slice(array);
+    }
+
+    fn append_padding(&mut self) {
+        while self.len() % 8 != 0 {
+            self.append_bool(false);
+        }
+    }
 }
 
 pub fn bitvec_init(value: bool, bits: usize) -> MyBitVec {
@@ -293,3 +388,65 @@ pub fn bitvec_init(value: bool, bits: usize) -> MyBitVec {
     }
     result
 }
+
+pub trait Bitsy: BitWritable {
+    fn parse<R: BitReader>(reader: &mut R) -> Self;
+}
+
+pub trait VersionedBitsy: BitWritable {
+    fn parse<R: BitReader>(reader: &mut R, version: u32) -> Self;
+}
+
+pub trait BitWritable {
+    fn append_to<W: BitWriter>(&self, writer: &mut W);
+}
+
+#[derive(Default)]
+pub struct Bits<const N: usize> {
+    pub bits: MyBitVec,
+}
+
+impl<const N: usize> Bitsy for Bits<N> {
+    fn parse<R: BitReader>(reader: &mut R) -> Self {
+        let bits = reader.read_bits(N);
+        Self { bits }
+    }
+}
+
+impl<const N: usize> BitWritable for Bits<N> {
+    fn append_to<W: BitWriter>(&self, writer: &mut W) {
+        writer.append_bits(&self.bits);
+    }
+}
+
+impl<const N: usize> Bitsy for [u8; N] {
+    fn parse<R: BitReader>(reader: &mut R) -> Self {
+        reader.read_byte_arr()
+    }
+}
+
+impl<const N: usize> BitWritable for [u8; N] {
+    fn append_to<W: BitWriter>(&self, writer: &mut W) {
+        writer.append_byte_arr(self);
+    }
+}
+
+macro_rules! integer_bitsy_impl {
+    ($type:ty) => {
+        impl Bitsy for $type {
+            fn parse<R: BitReader>(reader: &mut R) -> Self {
+                reader.read_int(std::mem::size_of::<$type>() * 8)
+            }
+        }
+
+        impl BitWritable for $type {
+            fn append_to<W: BitWriter>(&self, writer: &mut W) {
+                writer.append_int(*self, std::mem::size_of::<$type>() * 8);
+            }
+        }
+    };
+}
+
+integer_bitsy_impl!(u8);
+integer_bitsy_impl!(u16);
+integer_bitsy_impl!(u32);
