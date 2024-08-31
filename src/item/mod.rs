@@ -3,6 +3,12 @@ use std::fmt::{Debug, Display, Formatter};
 use bitvec::prelude::*;
 
 use bitsy::*;
+use error::BitsyError;
+use error::BitsyErrorKind;
+use impls::Bits;
+use impls::BitsyInt;
+use macros::bitsy_read;
+use macros::bitsy_write;
 
 use crate::bitsy;
 use crate::constants;
@@ -468,5 +474,161 @@ impl ItemProperties {
         for opt in &self.set_properties {
             opt.as_ref().map(|props| props.append_to(bit_vec));
         }
+    }
+}
+
+const ITEM_HEADER: [u8; 2] = [0x4A, 0x4D];
+
+#[derive(Debug)]
+pub struct NewItem {
+    unknown1: Bits<4>,
+    identified: bool,
+    unknown2: Bits<6>,
+    socketed: bool,
+    unknown3: Bits<9>,
+    simple: bool,
+    ethereal: bool,
+    unknown4: Bits<1>,
+    inscribed: bool,
+    unknown5: Bits<1>,
+    has_runeword: bool,
+    unknown6: Bits<15>,
+    x: BitsyInt<u8, 4>,
+    y: BitsyInt<u8, 4>,
+    unknown7: Bits<3>,
+    item_type: [u8; 4],
+    //item_info: ItemInfo,
+    //extended_info: Option<ExtendedInfo>,
+    //random_pad: Option<[u8; 12]>,
+    //specific_info: Option<SpecificInfo>,
+    //item_properties: Option<ItemProperties>,
+    //// TODO: replace with item
+    //gems: Vec<u8>,
+    //tail: MyBitVec,
+}
+
+impl Bitsy for NewItem {
+    fn parse<R: BitReader>(reader: &mut R) -> result::BitsyResult<Self> {
+        let version = reader
+            .version()
+            .ok_or_else(|| BitsyError::new(BitsyErrorKind::MissingVersion, reader.index()))?;
+        if version < 90 {
+            let header: [u8; 2] = reader.read()?;
+            if header != ITEM_HEADER {
+                return Err(BitsyError::new(
+                    BitsyErrorKind::InvalidData(format!(
+                        "Invalid item header. Got {:?}, expected {:?}",
+                        header, ITEM_HEADER
+                    )),
+                    reader.index() - 16,
+                ));
+            }
+        }
+        bitsy_read!(
+            reader,
+            unknown1,
+            identified,
+            unknown2,
+            socketed,
+            unknown3,
+            simple,
+            ethereal,
+            unknown4,
+            inscribed,
+            unknown5,
+            has_runeword,
+            unknown6,
+            x,
+            y,
+            unknown7,
+            item_type,
+        );
+
+        Ok(NewItem {
+            unknown1,
+            identified,
+            unknown2,
+            socketed,
+            unknown3,
+            simple,
+            ethereal,
+            unknown4,
+            inscribed,
+            unknown5,
+            has_runeword,
+            unknown6,
+            x,
+            y,
+            unknown7,
+            item_type,
+        })
+    }
+
+    fn write_to<W: BitWriter>(&self, writer: &mut W) -> result::BitsyResult<()> {
+        let version = writer
+            .version()
+            .ok_or_else(|| BitsyError::new(BitsyErrorKind::MissingVersion, 0))?;
+        if version < 90 {
+            writer.write(&ITEM_HEADER)?;
+        }
+        bitsy_write!(
+            writer,
+            &self.unknown1,
+            &self.identified,
+            &self.unknown2,
+            &self.socketed,
+            &self.unknown3,
+            &self.simple,
+            &self.ethereal,
+            &self.unknown4,
+            &self.inscribed,
+            &self.unknown5,
+            &self.has_runeword,
+            &self.unknown6,
+            &self.x,
+            &self.y,
+            &self.unknown7,
+            &self.item_type,
+        );
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct ItemList {
+    items: Vec<NewItem>,
+}
+
+impl Bitsy for ItemList {
+    fn parse<R: BitReader>(reader: &mut R) -> result::BitsyResult<Self> {
+        let header: [u8; 2] = reader.read()?;
+        if header != ITEM_HEADER {
+            return Err(BitsyError::new(
+                BitsyErrorKind::InvalidData(format!(
+                    "Invalid item list header. Got {:?}, expected {:?}",
+                    header, ITEM_HEADER
+                )),
+                reader.index() - 16,
+            ));
+        }
+
+        reader.report_next_bytes(16);
+        let count: u16 = reader.read()?;
+        println!("Item count: {}", count);
+        let mut items = Vec::new();
+        if count > 0 {
+            items.push(reader.read()?);
+        }
+
+        Ok(ItemList { items })
+    }
+
+    fn write_to<W: BitWriter>(&self, writer: &mut W) -> result::BitsyResult<()> {
+        writer.write(&ITEM_HEADER)?;
+        writer.write_int(self.items.len() as u32, 16)?;
+        for item in &self.items {
+            writer.write(item)?;
+        }
+        Ok(())
     }
 }

@@ -55,6 +55,12 @@ pub struct Bits<const N: usize> {
     bits: MyBitVec,
 }
 
+impl<const N: usize> Debug for Bits<N> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.bits.to_string().replace(", ", ""))
+    }
+}
+
 impl<const N: usize> Bitsy for Bits<N> {
     fn parse<R: BitReader>(reader: &mut R) -> BitsyResult<Self> {
         Ok(Self {
@@ -162,5 +168,70 @@ impl<T: Bitsy> Bitsy for Option<T> {
             writer.write(value)?;
         }
         Ok(())
+    }
+}
+
+pub struct BitsyBytes<const N: usize> {
+    bytes: [u8; N],
+}
+
+impl<const N: usize> BitsyBytes<N> {
+    pub fn new(bytes: [u8; N]) -> Self {
+        Self { bytes }
+    }
+}
+
+impl<const N: usize> Deref for BitsyBytes<N> {
+    type Target = [u8; N];
+
+    fn deref(&self) -> &Self::Target {
+        &self.bytes
+    }
+}
+
+impl<const N: usize> DerefMut for BitsyBytes<N> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.bytes
+    }
+}
+
+impl<const N: usize> Bitsy for BitsyBytes<N> {
+    fn parse<R: BitReader>(reader: &mut R) -> BitsyResult<Self> {
+        reader.read().map(|bytes| Self { bytes })
+    }
+
+    fn write_to<W: BitWriter>(&self, writer: &mut W) -> BitsyResult<()> {
+        writer.write(&self.bytes)
+    }
+}
+
+const MAX_DEBUG_BYTES: usize = 16;
+
+fn format_bytes(bytes: &[u8]) -> String {
+    bytes
+        .iter()
+        .copied()
+        .map(format_byte)
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn format_byte(byte: u8) -> String {
+    format!("{byte} (0x{byte:02X})")
+}
+
+impl<const N: usize> Debug for BitsyBytes<N> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.bytes.len() > MAX_DEBUG_BYTES {
+            let start_bytes = format_bytes(&self.bytes[..MAX_DEBUG_BYTES / 2]);
+            let end_bytes = format_bytes(&self.bytes[self.bytes.len() - MAX_DEBUG_BYTES / 2..]);
+            write!(
+                f,
+                "[{start_bytes} ... {} bytes hidden ... {end_bytes}]",
+                self.bytes.len() - MAX_DEBUG_BYTES,
+            )
+        } else {
+            write!(f, "[{}]", format_bytes(&self.bytes))
+        }
     }
 }

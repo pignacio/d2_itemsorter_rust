@@ -1,9 +1,12 @@
-use crate::bitsy::{
-    error::{BitsyError, BitsyErrorExt, BitsyErrorKind},
-    impls::BitsyInt,
-    macros::{bitsy_read, bitsy_write},
-    result::BitsyResult,
-    BitReader, BitWriter, Bitsy, MyBitVec,
+use crate::{
+    bitsy::{
+        error::{BitsyError, BitsyErrorExt, BitsyErrorKind},
+        impls::{BitsyBytes, BitsyInt},
+        macros::{bitsy_read, bitsy_write},
+        result::BitsyResult,
+        BitReader, BitWriter, Bitsy, MyBitVec,
+    },
+    item::ItemList,
 };
 
 const ATTRIBUTES_HEADER: [u8; 2] = [0x67, 0x66];
@@ -93,17 +96,18 @@ pub struct Player {
     created_at: u32,
     last_played_at: u32,
     unknown3: [u8; 4],
-    skill_stuff: [u8; 64 + 16],
-    appearance: [u8; 41],
-    merc_stuff: [u8; 42],
-    menu_appearance: [u8; 48],
+    skill_stuff: BitsyBytes<{ 64 + 16 }>,
+    appearance: BitsyBytes<41>,
+    merc_stuff: BitsyBytes<42>,
+    menu_appearance: BitsyBytes<48>,
     new_name: [u8; 16],
-    unknown4: [u8; 52],
-    quests: [u8; 298],
-    waypoints: [u8; 80],
-    npcs: [u8; 52],
+    unknown4: BitsyBytes<52>,
+    quests: BitsyBytes<298>,
+    waypoints: BitsyBytes<80>,
+    npcs: BitsyBytes<52>,
     attributes: Attributes,
-    skills: [u8; 32],
+    skills: BitsyBytes<32>,
+    items: ItemList,
 }
 
 impl Bitsy for Player {
@@ -137,6 +141,7 @@ impl Bitsy for Player {
             npcs,
             attributes,
             skills,
+            items,
         );
         Ok(Self {
             header,
@@ -165,6 +170,7 @@ impl Bitsy for Player {
             npcs,
             attributes,
             skills,
+            items,
         })
     }
 
@@ -197,6 +203,7 @@ impl Bitsy for Player {
             &self.npcs,
             &self.attributes,
             &self.skills,
+            &self.items,
         );
         Ok(())
     }
@@ -230,12 +237,12 @@ mod tests {
     use super::*;
     #[test]
     fn it_works() {
-        let bytes = std::fs::read("examples/StartingD2R.d2s").unwrap();
+        let bytes = std::fs::read("examples/PlasticSurgeon.d2s").unwrap();
         let bits = MyBitVec::from_vec(bytes);
 
         let mut reader = BitVecReader::new(bits.clone());
         let player = Player::parse(&mut reader).unwrap();
-        println!("Parsed player: {:?}", player);
+        println!("Parsed player: {:#?}", player);
         reader.report_next_bytes(32);
         let tail = reader.read_tail().unwrap();
         println!("Tail was {} bits long", tail.len());
