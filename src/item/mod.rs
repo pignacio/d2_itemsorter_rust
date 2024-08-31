@@ -1,5 +1,4 @@
 use std::fmt::{Debug, Display, Formatter};
-use std::io::Read;
 
 use bitvec::prelude::*;
 
@@ -164,7 +163,11 @@ impl Item {
                     " * First possible values: {}",
                     values.map(|x| x.to_string()).join(", ")
                 );
-            } else if properties.properties.iter().any(|p| p.definition().id() == 11157) {
+            } else if properties
+                .properties
+                .iter()
+                .any(|p| p.definition().id() == 11157)
+            {
                 println!("Debugging item: {}", item);
                 properties.properties.properties.iter().for_each(|prop| {
                     println!("* {}", prop);
@@ -179,7 +182,7 @@ impl Item {
         if bit_vec.len() <= skip {
             return -1;
         }
-        let mut reader = BitReader::new(bit_vec.to_bitvec().into_vec());
+        let mut reader = OldBitReader::new(bit_vec.to_bitvec().into_vec());
         if 0 < skip {
             let _ignored: u32 = reader.read_int(skip);
         }
@@ -266,7 +269,7 @@ struct ExtendedInfo {
 
 impl ExtendedInfo {
     pub fn parse(
-        bits: &mut BitReader,
+        bits: &mut OldBitReader,
         item: &mut Item,
         inscribed: bool,
         has_runeword: bool,
@@ -309,7 +312,7 @@ impl ExtendedInfo {
         }
     }
 
-    fn parse_quality(quality_id: u8, bits: &mut BitReader) -> Box<dyn Quality> {
+    fn parse_quality(quality_id: u8, bits: &mut OldBitReader) -> Box<dyn Quality> {
         match quality_id {
             1 => LowQuality::read_quality_bytes(quality_id, bits),
             3 => HighQuality::read_quality_bytes(quality_id, bits),
@@ -362,7 +365,7 @@ struct SpecificInfo {
 }
 
 impl SpecificInfo {
-    fn parse(bits: &mut BitReader, item: &mut Item, socketed: bool) -> SpecificInfo {
+    fn parse(bits: &mut OldBitReader, item: &mut Item, socketed: bool) -> SpecificInfo {
         let mut info = SpecificInfo {
             defense: None,
             max_durability: None,

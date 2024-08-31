@@ -6,7 +6,7 @@ pub const SET_QUALITY_ID: u8 = 5;
 pub trait Quality: Display {
     fn quality_id(&self) -> u8;
     fn write_quality_bytes(&self, bitvec: &mut MyBitVec);
-    fn read_quality_bytes(id: u8, bitreader: &mut BitReader) -> Box<dyn Quality>
+    fn read_quality_bytes(id: u8, bitreader: &mut OldBitReader) -> Box<dyn Quality>
     where
         Self: Sized;
 }
@@ -30,7 +30,7 @@ impl Quality for NormalQuality {
         // No extra bits
     }
 
-    fn read_quality_bytes(id: u8, _bitreader: &mut BitReader) -> Box<dyn Quality> {
+    fn read_quality_bytes(id: u8, _bitreader: &mut OldBitReader) -> Box<dyn Quality> {
         return Box::new(NormalQuality { id });
     }
 }
@@ -54,7 +54,7 @@ impl Quality for LowQuality {
         bitvec.append_int(self.low_quality_type as u32, 3);
     }
 
-    fn read_quality_bytes(id: u8, bitreader: &mut BitReader) -> Box<dyn Quality> {
+    fn read_quality_bytes(id: u8, bitreader: &mut OldBitReader) -> Box<dyn Quality> {
         assert_eq!(id, 1, "Low quality should have id = 1");
         return Box::new(LowQuality {
             low_quality_type: bitreader.read_int(3),
@@ -81,7 +81,7 @@ impl Quality for HighQuality {
         bitvec.append_int(self.high_quality_type as u32, 3);
     }
 
-    fn read_quality_bytes(id: u8, bitreader: &mut BitReader) -> Box<dyn Quality> {
+    fn read_quality_bytes(id: u8, bitreader: &mut OldBitReader) -> Box<dyn Quality> {
         assert_eq!(id, 3, "High quality should have id = 3");
         return Box::new(HighQuality {
             high_quality_type: bitreader.read_int(3),
@@ -110,7 +110,7 @@ impl Quality for MagicQuality {
         bitvec.append_int(self.suffix as u32, 11);
     }
 
-    fn read_quality_bytes(id: u8, bitreader: &mut BitReader) -> Box<dyn Quality> {
+    fn read_quality_bytes(id: u8, bitreader: &mut OldBitReader) -> Box<dyn Quality> {
         assert_eq!(id, 4, "Magic quality should have id = 4");
         return Box::new(MagicQuality {
             prefix: bitreader.read_int(11),
@@ -138,7 +138,7 @@ impl Quality for SetQuality {
         bitvec.append_int(self.set_id as u32, 12);
     }
 
-    fn read_quality_bytes(id: u8, bitreader: &mut BitReader) -> Box<dyn Quality> {
+    fn read_quality_bytes(id: u8, bitreader: &mut OldBitReader) -> Box<dyn Quality> {
         assert_eq!(id, SET_QUALITY_ID, "Set quality should have id = 5");
         return Box::new(SetQuality {
             set_id: bitreader.read_int(12),
@@ -181,7 +181,7 @@ impl Quality for RareQuality {
         bitvec.append_optional_int(self.suffix3, 11);
     }
 
-    fn read_quality_bytes(id: u8, bitreader: &mut BitReader) -> Box<dyn Quality> {
+    fn read_quality_bytes(id: u8, bitreader: &mut OldBitReader) -> Box<dyn Quality> {
         assert!(
             id == 6 || id == 8,
             "Rare/Crafted quality should have id in [6, 8]"
@@ -225,7 +225,7 @@ impl Quality for UniqueQuality {
         bitvec.append_int(self.unique_id, 12);
     }
 
-    fn read_quality_bytes(id: u8, bitreader: &mut BitReader) -> Box<dyn Quality> {
+    fn read_quality_bytes(id: u8, bitreader: &mut OldBitReader) -> Box<dyn Quality> {
         assert_eq!(id, 7, "Unique quality should have id = 7");
         return Box::new(UniqueQuality {
             unique_id: bitreader.read_int(12),

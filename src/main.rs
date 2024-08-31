@@ -1,19 +1,19 @@
 use std::cmp::min;
 use std::rc::Rc;
 
-use stash::Stash;
-
-use crate::bitsy::BitReader;
-use crate::item::info::ItemDb;
-use crate::item::properties::MapPropertyDb;
-use crate::item::reader::ItemReader;
-
 mod bitsy;
 mod constants;
 mod item;
 mod page;
+mod player;
 mod quality;
 mod stash;
+
+use crate::bitsy::OldBitReader;
+use crate::item::info::ItemDb;
+use crate::item::properties::MapPropertyDb;
+use crate::item::reader::ItemReader;
+use crate::stash::Stash;
 
 fn main() {
     println!("Hello, world!");
@@ -25,7 +25,7 @@ fn main() {
     println!("{:?}", item_db.get_info("brs "));
 
     let itemreader = ItemReader::new(
-        BitReader::new(bytes.to_vec()),
+        OldBitReader::new(bytes.to_vec()),
         Rc::clone(&item_db),
         Rc::new(MapPropertyDb::new()),
     );
