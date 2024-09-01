@@ -1,4 +1,6 @@
+pub mod context;
 pub mod error;
+mod huffman;
 pub mod impls;
 pub mod macros;
 mod old;
@@ -8,6 +10,8 @@ mod writer;
 
 use std::convert::TryFrom;
 
+use context::{ContextKey, ContextValue};
+pub use huffman::HuffmanChars;
 pub use old::*;
 pub use reader::BitVecReader;
 pub use writer::BitVecWriter;
@@ -17,9 +21,10 @@ use result::BitsyResult;
 use crate::item::{info::ItemDb, properties::PropertyDb};
 
 pub trait BitReader: Sized {
-    fn version(&self) -> Option<u32>;
-    fn set_version(&mut self, version: u32);
     fn index(&self) -> usize;
+
+    fn get_context<T: ContextValue>(&self, key: &ContextKey<T>) -> BitsyResult<T>;
+    fn set_context<T: ContextValue>(&mut self, key: &ContextKey<T>, value: T);
 
     fn item_db(&self) -> impl ItemDb;
     fn property_db(&self) -> impl PropertyDb;
@@ -32,6 +37,7 @@ pub trait BitReader: Sized {
     fn read<T: Bitsy>(&mut self) -> BitsyResult<T> {
         T::parse(self)
     }
+    fn peek<T: Bitsy>(&mut self) -> BitsyResult<T>;
 
     fn report_next_bytes(&self, count: usize);
 }
@@ -51,4 +57,8 @@ pub trait BitWriter: Sized {
 pub trait Bitsy: Sized {
     fn parse<R: BitReader>(reader: &mut R) -> BitsyResult<Self>;
     fn write_to<W: BitWriter>(&self, writer: &mut W) -> BitsyResult<()>;
+}
+
+pub trait BitSized {
+    fn bit_size(&self) -> usize;
 }

@@ -1,10 +1,11 @@
 use crate::{
     bitsy::{
+        context,
         error::{BitsyError, BitsyErrorExt, BitsyErrorKind},
-        impls::{BitsyBytes, BitsyInt},
+        impls::{BitsyBytes, BitsyChars, BitsyInt},
         macros::{bitsy_read, bitsy_write},
         result::BitsyResult,
-        BitReader, BitWriter, Bitsy, MyBitVec,
+        BitReader, BitSized, BitWriter, Bitsy, MyBitVec,
     },
     item::ItemList,
 };
@@ -14,10 +15,38 @@ const ATTRIBUTE_ID_SIZE: usize = 9;
 type AttributeId = BitsyInt<u16, ATTRIBUTE_ID_SIZE>;
 const TERMINATOR: u16 = 0b111111111;
 const ATTRIBUTE_SIZES: [usize; 16] = [10, 10, 10, 10, 10, 8, 21, 21, 21, 21, 21, 21, 7, 32, 25, 25];
+const ATTRIBUTE_NAMES: [&str; 16] = [
+    "Strength",
+    "Energy",
+    "Dexterity",
+    "Vitality",
+    "Unused stats",
+    "Unused skills",
+    "Current HP",
+    "Max HP",
+    "Current MP",
+    "Max MP",
+    "Current Stamina",
+    "Max Stamina",
+    "Level",
+    "Experience",
+    "Gold",
+    "Stashed Gold",
+];
 
-#[derive(Debug)]
+//#[derive(Debug)]
 pub struct Attributes {
     values: Vec<(AttributeId, u32)>,
+}
+
+impl std::fmt::Debug for Attributes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut debug = f.debug_struct("Attributes");
+        for (attribute_id, value) in &self.values {
+            debug.field(ATTRIBUTE_NAMES[attribute_id.value() as usize], value);
+        }
+        debug.finish()
+    }
 }
 
 impl Bitsy for Attributes {
@@ -30,7 +59,7 @@ impl Bitsy for Attributes {
                     "Invalid attributes header {:?} (expected {:?})",
                     header, ATTRIBUTES_HEADER
                 )),
-                reader.index() - 2 * 8,
+                reader.index() - header.bit_size(),
             ));
         }
         loop {
@@ -43,7 +72,7 @@ impl Bitsy for Attributes {
                         "Invalid attribute id {}",
                         attribute_id.value()
                     )),
-                    reader.index() - 9,
+                    reader.index() - attribute_id.bit_size(),
                 )
                 .prepend_index(values.len()));
             }
@@ -81,26 +110,26 @@ impl Bitsy for Attributes {
 
 #[derive(Debug)]
 pub struct Player {
-    header: [u8; 4],
+    header: BitsyBytes<4>,
     version: u32,
     file_size: u32,
     checksum: u32,
     active_weapon: u32,
-    old_name: [u8; 16],
+    old_name: BitsyChars<16>,
     status: u8,
     progression: u8,
-    unknown1: [u8; 2],
+    unknown1: BitsyBytes<2>,
     class: u8,
-    unknown2: [u8; 2],
+    unknown2: BitsyBytes<2>,
     level: u8,
     created_at: u32,
     last_played_at: u32,
-    unknown3: [u8; 4],
+    unknown3: BitsyBytes<4>,
     skill_stuff: BitsyBytes<{ 64 + 16 }>,
     appearance: BitsyBytes<41>,
     merc_stuff: BitsyBytes<42>,
     menu_appearance: BitsyBytes<48>,
-    new_name: [u8; 16],
+    new_name: BitsyChars<16>,
     unknown4: BitsyBytes<52>,
     quests: BitsyBytes<298>,
     waypoints: BitsyBytes<80>,
@@ -113,7 +142,7 @@ pub struct Player {
 impl Bitsy for Player {
     fn parse<R: BitReader>(reader: &mut R) -> BitsyResult<Self> {
         bitsy_read!(reader, header, version);
-        reader.set_version(version);
+        reader.set_context(&context::VERSION, version);
 
         bitsy_read!(
             reader,

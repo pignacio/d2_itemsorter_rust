@@ -6,15 +6,16 @@ use crate::item::{
 };
 
 use super::{
+    context::{ContextKey, ContextMap, ContextStore, ContextValue},
     error::{BitsyError, BitsyErrorKind},
     result::BitsyResult,
-    BitReader, MyBitSlice, MyBitVec,
+    BitReader, Bitsy, MyBitSlice, MyBitVec,
 };
 
 pub struct BitVecReader {
     bits: MyBitVec,
     index: usize,
-    version: Option<u32>,
+    context: ContextMap,
 }
 
 fn parse_int(bits: &MyBitSlice) -> Result<u32, String> {
@@ -49,7 +50,7 @@ impl BitVecReader {
         Self {
             bits,
             index: 0,
-            version: None,
+            context: ContextMap::new(),
         }
     }
 
@@ -59,16 +60,18 @@ impl BitVecReader {
 }
 
 impl BitReader for BitVecReader {
-    fn version(&self) -> Option<u32> {
-        self.version
-    }
-
-    fn set_version(&mut self, version: u32) {
-        self.version = Some(version);
-    }
-
     fn index(&self) -> usize {
         self.index
+    }
+
+    fn get_context<T: ContextValue>(&self, key: &ContextKey<T>) -> BitsyResult<T> {
+        self.context
+            .get_context(key)
+            .ok_or_else(|| self.error(BitsyErrorKind::MissingContext(key.as_str().to_string())))
+    }
+
+    fn set_context<T: ContextValue>(&mut self, key: &ContextKey<T>, value: T) {
+        self.context.set_context(key, value)
     }
 
     fn item_db(&self) -> impl ItemDb {
@@ -165,5 +168,14 @@ impl BitReader for BitVecReader {
                 );
             }
         }
+    }
+
+    fn peek<T: Bitsy>(&mut self) -> BitsyResult<T> {
+        let index = self.index;
+        let context = self.context.clone();
+        let value = T::parse(self);
+        self.index = index;
+        self.context = context;
+        value
     }
 }

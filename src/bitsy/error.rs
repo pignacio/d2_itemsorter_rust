@@ -23,6 +23,7 @@ pub enum BitsyErrorKind {
     EndOfData,
     InvalidData(String),
     MissingVersion,
+    MissingContext(String),
 }
 
 pub struct BitsyError {

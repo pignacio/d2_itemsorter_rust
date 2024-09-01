@@ -4,7 +4,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use super::{error::BitsyErrorExt, BitReader, BitWriter, Bitsy, BitsyResult, MyBitVec};
+use super::{error::BitsyErrorExt, BitReader, BitSized, BitWriter, Bitsy, BitsyResult, MyBitVec};
 
 macro_rules! integer_bitsy_impl {
     ($ty:ty) => {
@@ -205,7 +205,7 @@ impl<const N: usize> Bitsy for BitsyBytes<N> {
     }
 }
 
-const MAX_DEBUG_BYTES: usize = 16;
+const MAX_DEBUG_BYTES: usize = 12;
 
 fn format_bytes(bytes: &[u8]) -> String {
     bytes
@@ -233,5 +233,75 @@ impl<const N: usize> Debug for BitsyBytes<N> {
         } else {
             write!(f, "[{}]", format_bytes(&self.bytes))
         }
+    }
+}
+
+pub struct BitsyChars<const N: usize> {
+    bytes: [u8; N],
+}
+
+impl<const N: usize> Bitsy for BitsyChars<N> {
+    fn parse<R: BitReader>(reader: &mut R) -> BitsyResult<Self> {
+        reader.read().map(|bytes| Self { bytes })
+    }
+
+    fn write_to<W: BitWriter>(&self, writer: &mut W) -> BitsyResult<()> {
+        writer.write(&self.bytes)
+    }
+}
+
+impl<const N: usize> Debug for BitsyChars<N> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let string = self
+            .bytes
+            .iter()
+            .map(|byte| *byte as char)
+            .collect::<String>();
+
+        write!(f, "BC<{:?}>", string)
+    }
+}
+
+macro_rules! integer_bitsized_impl {
+    ($($ty:ty,)+) => {
+        $(
+        impl BitSized for $ty {
+            fn bit_size(&self) -> usize {
+                std::mem::size_of::<$ty>() * 8
+            }
+        }
+        )+
+    };
+}
+
+integer_bitsized_impl!(u8, u16, u32,);
+
+impl BitSized for bool {
+    fn bit_size(&self) -> usize {
+        1
+    }
+}
+
+impl<const N: usize, T: BitSized> BitSized for [T; N] {
+    fn bit_size(&self) -> usize {
+        self.iter().map(|x| x.bit_size()).sum()
+    }
+}
+
+impl BitSized for MyBitVec {
+    fn bit_size(&self) -> usize {
+        self.len()
+    }
+}
+
+impl<const N: usize> BitSized for Bits<N> {
+    fn bit_size(&self) -> usize {
+        N
+    }
+}
+
+impl<T: TryFrom<u32> + Into<u32> + Copy + Debug, const N: usize> BitSized for BitsyInt<T, N> {
+    fn bit_size(&self) -> usize {
+        N
     }
 }

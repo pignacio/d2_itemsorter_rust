@@ -9,6 +9,7 @@ use impls::Bits;
 use impls::BitsyInt;
 use macros::bitsy_read;
 use macros::bitsy_write;
+use result::BitsyResult;
 
 use crate::bitsy;
 use crate::constants;
@@ -496,8 +497,8 @@ pub struct NewItem {
     x: BitsyInt<u8, 4>,
     y: BitsyInt<u8, 4>,
     unknown7: Bits<3>,
-    item_type: [u8; 4],
-    //item_info: ItemInfo,
+    item_type: HuffmanChars<4>,
+    item_info: ItemInfo,
     //extended_info: Option<ExtendedInfo>,
     //random_pad: Option<[u8; 12]>,
     //specific_info: Option<SpecificInfo>,
@@ -508,11 +509,9 @@ pub struct NewItem {
 }
 
 impl Bitsy for NewItem {
-    fn parse<R: BitReader>(reader: &mut R) -> result::BitsyResult<Self> {
-        let version = reader
-            .version()
-            .ok_or_else(|| BitsyError::new(BitsyErrorKind::MissingVersion, reader.index()))?;
-        if version < 90 {
+    fn parse<R: BitReader>(reader: &mut R) -> BitsyResult<Self> {
+        let version = reader.get_context(&context::VERSION)?;
+        if version < 97 {
             let header: [u8; 2] = reader.read()?;
             if header != ITEM_HEADER {
                 return Err(BitsyError::new(
@@ -520,7 +519,7 @@ impl Bitsy for NewItem {
                         "Invalid item header. Got {:?}, expected {:?}",
                         header, ITEM_HEADER
                     )),
-                    reader.index() - 16,
+                    reader.index() - header.bit_size(),
                 ));
             }
         }
@@ -543,6 +542,14 @@ impl Bitsy for NewItem {
             unknown7,
             item_type,
         );
+        let item_info = ItemInfo::default();
+        //let extended_info = ExtendedInfo {
+        //    guid: [0,0,0,0],
+        //    drop_level: 63,
+        //    quality: Box::new(NormalQuality::default()),
+        //    gfx: None,
+        //    class_info: todo!(),
+        //}
 
         Ok(NewItem {
             unknown1,
@@ -561,14 +568,15 @@ impl Bitsy for NewItem {
             y,
             unknown7,
             item_type,
+            item_info,
         })
     }
 
-    fn write_to<W: BitWriter>(&self, writer: &mut W) -> result::BitsyResult<()> {
+    fn write_to<W: BitWriter>(&self, writer: &mut W) -> BitsyResult<()> {
         let version = writer
             .version()
             .ok_or_else(|| BitsyError::new(BitsyErrorKind::MissingVersion, 0))?;
-        if version < 90 {
+        if version < 97 {
             writer.write(&ITEM_HEADER)?;
         }
         bitsy_write!(
@@ -600,7 +608,7 @@ pub struct ItemList {
 }
 
 impl Bitsy for ItemList {
-    fn parse<R: BitReader>(reader: &mut R) -> result::BitsyResult<Self> {
+    fn parse<R: BitReader>(reader: &mut R) -> BitsyResult<Self> {
         let header: [u8; 2] = reader.read()?;
         if header != ITEM_HEADER {
             return Err(BitsyError::new(
@@ -608,11 +616,10 @@ impl Bitsy for ItemList {
                     "Invalid item list header. Got {:?}, expected {:?}",
                     header, ITEM_HEADER
                 )),
-                reader.index() - 16,
+                reader.index() - header.bit_size(),
             ));
         }
 
-        reader.report_next_bytes(16);
         let count: u16 = reader.read()?;
         println!("Item count: {}", count);
         let mut items = Vec::new();
@@ -623,7 +630,7 @@ impl Bitsy for ItemList {
         Ok(ItemList { items })
     }
 
-    fn write_to<W: BitWriter>(&self, writer: &mut W) -> result::BitsyResult<()> {
+    fn write_to<W: BitWriter>(&self, writer: &mut W) -> BitsyResult<()> {
         writer.write(&ITEM_HEADER)?;
         writer.write_int(self.items.len() as u32, 16)?;
         for item in &self.items {
