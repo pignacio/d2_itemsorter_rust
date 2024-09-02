@@ -26,6 +26,12 @@ pub enum BitsyErrorKind {
     MissingContext(String),
 }
 
+impl BitsyErrorKind {
+    pub fn at_bit(self, bit: usize) -> BitsyError {
+        BitsyError::new(self, bit)
+    }
+}
+
 pub struct BitsyError {
     kind: BitsyErrorKind,
     bit: usize,

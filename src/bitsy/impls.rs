@@ -73,23 +73,26 @@ impl<const N: usize> Bitsy for Bits<N> {
     }
 }
 
-pub struct BitsyInt<T: TryFrom<u32> + Into<u32> + Copy, const N: usize> {
+pub trait BitsyIntTarget: TryFrom<u32> + Into<u32> + Copy + Debug {}
+impl<T: TryFrom<u32> + Into<u32> + Copy + Debug> BitsyIntTarget for T {}
+
+pub struct BitsyInt<T: BitsyIntTarget, const N: usize> {
     value: T,
 }
 
-impl<T: TryFrom<u32> + Into<u32> + Copy + Debug, const N: usize> Debug for BitsyInt<T, N> {
+impl<T: BitsyIntTarget + Debug, const N: usize> Debug for BitsyInt<T, N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "BI<{:?}>", self.value)
     }
 }
 
-impl<T: TryFrom<u32> + Into<u32> + Copy, const N: usize> BitsyInt<T, N> {
+impl<T: BitsyIntTarget, const N: usize> BitsyInt<T, N> {
     pub fn value(&self) -> T {
         self.value
     }
 }
 
-//impl<T: TryFrom<u32> + Into<u32> + Copy, const N: usize> Deref for BitsyInt<T, N> {
+//impl<T: BitsyIntTarget, const N: usize> Deref for BitsyInt<T, N> {
 //    type Target = T;
 //
 //    fn deref(&self) -> &Self::Target {
@@ -97,7 +100,7 @@ impl<T: TryFrom<u32> + Into<u32> + Copy, const N: usize> BitsyInt<T, N> {
 //    }
 //}
 
-impl<T: TryFrom<u32> + Into<u32> + Copy, const N: usize> Bitsy for BitsyInt<T, N> {
+impl<T: BitsyIntTarget, const N: usize> Bitsy for BitsyInt<T, N> {
     fn parse<R: BitReader>(reader: &mut R) -> BitsyResult<Self> {
         Ok(Self {
             value: reader.read_int::<T>(N)?,
@@ -111,6 +114,16 @@ impl<T: TryFrom<u32> + Into<u32> + Copy, const N: usize> Bitsy for BitsyInt<T, N
 
 pub struct BitsyOption<T: Bitsy> {
     value: Option<T>,
+}
+
+impl<T: Bitsy> Debug for BitsyOption<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(value) = &self.value {
+            write!(f, "BO<{:?}>", value)
+        } else {
+            write!(f, "BO<None>")
+        }
+    }
 }
 
 impl<T: Bitsy> Deref for BitsyOption<T> {
@@ -300,7 +313,7 @@ impl<const N: usize> BitSized for Bits<N> {
     }
 }
 
-impl<T: TryFrom<u32> + Into<u32> + Copy + Debug, const N: usize> BitSized for BitsyInt<T, N> {
+impl<T: BitsyIntTarget, const N: usize> BitSized for BitsyInt<T, N> {
     fn bit_size(&self) -> usize {
         N
     }

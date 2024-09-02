@@ -4,9 +4,12 @@ use bitvec::prelude::*;
 
 use bitsy::*;
 use error::BitsyError;
+use error::BitsyErrorExt;
 use error::BitsyErrorKind;
 use impls::Bits;
+use impls::BitsyBytes;
 use impls::BitsyInt;
+use impls::BitsyOption;
 use macros::bitsy_read;
 use macros::bitsy_write;
 use result::BitsyResult;
@@ -499,10 +502,10 @@ pub struct NewItem {
     unknown7: Bits<3>,
     item_type: HuffmanChars<4>,
     item_info: ItemInfo,
-    //extended_info: Option<ExtendedInfo>,
+    extended_info: Option<NewExtendedInfo>,
     //random_pad: Option<[u8; 12]>,
     //specific_info: Option<SpecificInfo>,
-    //item_properties: Option<ItemProperties>,
+    item_properties: Option<NewPropertyList>,
     //// TODO: replace with item
     //gems: Vec<u8>,
     //tail: MyBitVec,
@@ -510,6 +513,10 @@ pub struct NewItem {
 
 impl Bitsy for NewItem {
     fn parse<R: BitReader>(reader: &mut R) -> BitsyResult<Self> {
+        let chars = HuffmanChars::<4>::new(['m', 'f', 'd', ' ']);
+        let charbits = bitsy_to_bits(&chars, 0);
+        reader.report_search(&charbits);
+
         let version = reader.get_context(&context::VERSION)?;
         if version < 97 {
             let header: [u8; 2] = reader.read()?;
@@ -543,6 +550,18 @@ impl Bitsy for NewItem {
             item_type,
         );
         let item_info = ItemInfo::default();
+        reader.set_context(&context::HAS_SOCKETS, socketed);
+        reader.set_context(&context::ITEM_INFO, item_info.clone());
+        let extended_info = if simple {
+            None
+        } else {
+            Some(reader.read().prepend_path("extended_info")?)
+        };
+        let item_properties = if simple {
+            None
+        } else {
+            Some(reader.read().prepend_path("item_properties")?)
+        };
         //let extended_info = ExtendedInfo {
         //    guid: [0,0,0,0],
         //    drop_level: 63,
@@ -550,6 +569,8 @@ impl Bitsy for NewItem {
         //    gfx: None,
         //    class_info: todo!(),
         //}
+        //
+        reader.read_padding()?;
 
         Ok(NewItem {
             unknown1,
@@ -569,6 +590,8 @@ impl Bitsy for NewItem {
             unknown7,
             item_type,
             item_info,
+            extended_info,
+            item_properties,
         })
     }
 
@@ -609,6 +632,7 @@ pub struct ItemList {
 
 impl Bitsy for ItemList {
     fn parse<R: BitReader>(reader: &mut R) -> BitsyResult<Self> {
+        let _reset = reader.queue_context_reset();
         let header: [u8; 2] = reader.read()?;
         if header != ITEM_HEADER {
             return Err(BitsyError::new(
@@ -623,7 +647,7 @@ impl Bitsy for ItemList {
         let count: u16 = reader.read()?;
         println!("Item count: {}", count);
         let mut items = Vec::new();
-        if count > 0 {
+        for _ in 0..count {
             items.push(reader.read()?);
         }
 
@@ -637,5 +661,102 @@ impl Bitsy for ItemList {
             writer.write(item)?;
         }
         Ok(())
+    }
+}
+
+#[derive(Debug)]
+struct NewExtendedInfo {
+    gem_count: BitsyInt<u8, 3>,
+    guid: BitsyBytes<4>,
+    drop_level: BitsyInt<u8, 7>,
+    gfx: BitsyOption<BitsyInt<u8, 3>>,
+    class_info: BitsyOption<Bits<11>>,
+    quality: ItemQuality,
+}
+
+impl Bitsy for NewExtendedInfo {
+    fn parse<R: BitReader>(reader: &mut R) -> BitsyResult<Self> {
+        bitsy_read!(reader, gem_count, guid, drop_level);
+        let quality_id: QualityId = reader.read()?;
+        reader.set_context(&context::QUALITY_ID, quality_id);
+        bitsy_read!(reader, gfx, class_info, quality);
+
+        Ok(NewExtendedInfo {
+            gem_count,
+            guid,
+            drop_level,
+            gfx,
+            class_info,
+            quality,
+        })
+        //let mut info = ExtendedInfo {
+        //    guid: [0u8; 4],
+        //    drop_level: 0,
+        //    quality: Box::new(NormalQuality::default()),
+        //    gfx: None,
+        //    class_info: None,
+        //};
+        //
+        //let gem_count: u8 = bits.read_int(3); // 3 (111)
+        //info.guid = bits.read_byte_arr(); // 35 (143)
+        //info.drop_level = bits.read_int(7); // 42 (150)
+        //let quality_id: u8 = bits.read_int(4); // 46 (154)
+        //info.gfx = bits.read_optional_int(3); // 49 (157)
+        //info.class_info = bits.read_optional_bits(11); // 60 (168)
+        //info.quality = ExtendedInfo::parse_quality(quality_id, bits); // ?? (???)
+        //if has_runeword {
+        //    item.runeword = Some(bits.read_int(16));
+        //}
+        //if inscribed {
+        //    panic!("We do not support inscribed items yet");
+        //}
+        //
+        //return (info, gem_count);
+    }
+
+    fn write_to<W: BitWriter>(&self, writer: &mut W) -> BitsyResult<()> {
+        bitsy_write!(writer, &self.gem_count, &self.guid, &self.drop_level);
+        writer.write(&self.quality.get_quality_id())?;
+        bitsy_write!(writer, &self.gfx, &self.class_info, &self.quality);
+        Ok(())
+    }
+}
+
+lazy_static::lazy_static! {
+    pub static ref PROPERTY_TERMINATOR: MyBitVec = {
+        let mut vec = MyBitVec::new();
+        for _ in 0..9 {
+            vec.append_bool(true);
+        }
+        vec
+    };
+}
+
+struct NewPropertyList {
+    tail: MyBitVec,
+}
+
+impl Debug for NewPropertyList {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NewPropertyList")
+            .field("tail", &self.tail.to_string())
+            .finish()
+    }
+}
+
+impl Bitsy for NewPropertyList {
+    fn parse<R: BitReader>(reader: &mut R) -> BitsyResult<Self> {
+        let tail = reader
+            .read_until(&PROPERTY_TERMINATOR)
+            .prepend_path("tail")?;
+
+        // Consume PROPERTY_TERMINATOR
+        reader.read_bits(9).prepend_path("terminator")?;
+
+        Ok(NewPropertyList { tail })
+    }
+
+    fn write_to<W: BitWriter>(&self, writer: &mut W) -> BitsyResult<()> {
+        todo!()
     }
 }

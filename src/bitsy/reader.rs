@@ -6,7 +6,7 @@ use crate::item::{
 };
 
 use super::{
-    context::{ContextKey, ContextMap, ContextStore, ContextValue},
+    context::{ContextKey, ContextMap, ContextValue},
     error::{BitsyError, BitsyErrorKind},
     result::BitsyResult,
     BitReader, Bitsy, MyBitSlice, MyBitVec,
@@ -64,14 +64,18 @@ impl BitReader for BitVecReader {
         self.index
     }
 
+    fn queue_context_reset(&self) -> super::context::ContextResetGuard {
+        self.context.context_reset()
+    }
+
+    fn set_context<T: ContextValue>(&mut self, key: &ContextKey<T>, value: T) {
+        self.context.set_context(key, value);
+    }
+
     fn get_context<T: ContextValue>(&self, key: &ContextKey<T>) -> BitsyResult<T> {
         self.context
             .get_context(key)
             .ok_or_else(|| self.error(BitsyErrorKind::MissingContext(key.as_str().to_string())))
-    }
-
-    fn set_context<T: ContextValue>(&mut self, key: &ContextKey<T>, value: T) {
-        self.context.set_context(key, value)
     }
 
     fn item_db(&self) -> impl ItemDb {
@@ -141,6 +145,15 @@ impl BitReader for BitVecReader {
         Ok(tail)
     }
 
+    fn read_until(&mut self, bits: &MyBitVec) -> BitsyResult<MyBitVec> {
+        let result = self
+            .search(bits, 0)
+            .map(|offset| self.bits[self.index..self.index + offset].to_owned())
+            .unwrap_or_else(|| self.bits[self.index..].to_owned());
+        self.index += result.len();
+        Ok(result)
+    }
+
     fn report_next_bytes(&self, count: usize) {
         println!(
             "BitReader status: in bit {} (byte {}) of {} ({} bytes)",
@@ -177,5 +190,16 @@ impl BitReader for BitVecReader {
         self.index = index;
         self.context = context;
         value
+    }
+
+    fn search(&self, needle: &MyBitVec, offset: usize) -> Option<usize> {
+        let mut start = self.index + offset;
+        while start < self.bits.len() {
+            if self.bits[start..].starts_with(needle) {
+                return Some(start - self.index);
+            }
+            start += 1;
+        }
+        None
     }
 }

@@ -7,6 +7,9 @@ macro_rules! bitsy_read {
 pub(crate) use bitsy_read;
 
 macro_rules! bitsy_write {
+    ($writer:ident $(, $value:ident)+ $(,)?) => {
+        $( $crate::bitsy::error::BitsyErrorExt::prepend_path($writer.write($value), stringify!($value))?; )+
+    };
     ($writer:ident $(, &$value:ident)+ $(,)?) => {
         $( $crate::bitsy::error::BitsyErrorExt::prepend_path($writer.write(&$value), stringify!($value))?; )+
     };

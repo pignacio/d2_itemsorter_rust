@@ -142,7 +142,7 @@ pub struct Player {
 impl Bitsy for Player {
     fn parse<R: BitReader>(reader: &mut R) -> BitsyResult<Self> {
         bitsy_read!(reader, header, version);
-        reader.set_context(&context::VERSION, version);
+        let _version_guard = reader.set_context(&context::VERSION, version);
 
         bitsy_read!(
             reader,
@@ -240,7 +240,7 @@ impl Bitsy for Player {
 
 #[cfg(test)]
 mod tests {
-    use crate::bitsy::{BitVecReader, BitVecWriter};
+    use crate::bitsy::{bitsy_to_bits, BitVecReader, BitVecWriter, HuffmanChars};
 
     fn compare_bitvecs(expected: &MyBitVec, actual: &MyBitVec) -> Result<(), String> {
         if expected.len() != actual.len() {
@@ -270,6 +270,11 @@ mod tests {
         let bits = MyBitVec::from_vec(bytes);
 
         let mut reader = BitVecReader::new(bits.clone());
+
+        let chars = HuffmanChars::<4>::new(['m', 'f', 'd', ' ']);
+        let charbits = bitsy_to_bits(&chars, 0);
+        reader.report_search(&charbits);
+
         let player = Player::parse(&mut reader).unwrap();
         println!("Parsed player: {:#?}", player);
         reader.report_next_bytes(32);

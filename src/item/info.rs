@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-#[derive(Debug, Clone)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ItemInfo {
     pub id: String,
     pub name: String,

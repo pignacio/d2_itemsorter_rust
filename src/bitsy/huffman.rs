@@ -48,6 +48,9 @@ lazy_static::lazy_static! {
         ].iter()
             .map(|(k, v)| (k.chars().rev().collect::<String>(), *v))
             .collect();
+
+
+    static ref HUFFMAN_ENCODE_MAP: std::collections::HashMap<char, String> =    HUFFMAN_DECODE_MAP.iter().map(|(str, c)| (*c, str.clone())).collect();
 }
 
 const MAX_HUFFMAN_SIZE: usize = 9;
@@ -75,7 +78,21 @@ impl Bitsy for HuffmanChar {
     }
 
     fn write_to<W: super::BitWriter>(&self, writer: &mut W) -> BitsyResult<()> {
-        todo!()
+        let encoded = HUFFMAN_ENCODE_MAP.get(&self.char).ok_or_else(|| {
+            BitsyErrorKind::InvalidData(format!("Could not find huffman code for '{}'", self.char))
+                .at_bit(0)
+        })?;
+        for c in encoded.chars() {
+            let bit = c == '1';
+            writer.write(&bit)?;
+        }
+        Ok(())
+    }
+}
+
+impl Debug for HuffmanChar {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "HC<{}>", self.char)
     }
 }
 
@@ -84,6 +101,12 @@ pub struct HuffmanChars<const N: usize> {
 }
 
 impl<const N: usize> HuffmanChars<N> {
+    pub fn new(chars: [char; N]) -> Self {
+        Self {
+            chars: chars.map(|c| HuffmanChar { char: c }),
+        }
+    }
+
     pub fn as_string(&self) -> String {
         self.chars.iter().map(|c| c.char).collect::<String>()
     }
