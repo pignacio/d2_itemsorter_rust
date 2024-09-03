@@ -6,9 +6,15 @@ pub mod macros;
 mod old;
 mod reader;
 pub mod result;
+pub mod structs;
 mod writer;
 
-use std::{convert::TryFrom, fmt::Debug};
+use std::{
+    any::type_name,
+    convert::{TryFrom, TryInto},
+    fmt::Debug,
+    rc::Rc,
+};
 
 use context::{ContextKey, ContextResetGuard, ContextValue};
 pub use huffman::HuffmanChars;
@@ -20,6 +26,26 @@ use result::BitsyResult;
 
 use crate::item::{info::ItemDb, properties::PropertyDb};
 
+pub fn parse_int(bits: &MyBitSlice) -> Result<u32, String> {
+    if bits.len() > 32 {
+        return Err("Ints > 32 bits not supported".to_string());
+    }
+    let mut res: u32 = 0;
+    let mut multiplier = 1u64;
+
+    for bit in bits {
+        if *bit {
+            let multiplier: u32 = multiplier
+                .try_into()
+                .map_err(|_| "Multiplier was too big, should not happen".to_string())?;
+            res += multiplier
+        }
+        multiplier *= 2;
+    }
+
+    Ok(res)
+}
+
 pub trait BitReader: Sized {
     fn index(&self) -> usize;
 
@@ -27,7 +53,7 @@ pub trait BitReader: Sized {
     fn get_context<T: ContextValue>(&self, key: &ContextKey<T>) -> BitsyResult<T>;
     fn set_context<T: ContextValue>(&mut self, key: &ContextKey<T>, value: T);
 
-    fn item_db(&self) -> impl ItemDb;
+    fn item_db(&self) -> Rc<dyn ItemDb>;
     fn property_db(&self) -> impl PropertyDb;
 
     fn read_int<T: TryFrom<u32>>(&mut self, bit_count: usize) -> BitsyResult<T>;
@@ -49,7 +75,7 @@ pub trait BitReader: Sized {
             self.index(),
             self.index() / 8,
         );
-        println!("Searching for: {needle:?}");
+        println!("Searching for: {needle}");
         let mut match_count = 0;
         let mut offset = 0;
         while let Some(find_offset) = self.search(needle, offset) {
@@ -67,6 +93,7 @@ pub trait BitReader: Sized {
 }
 
 pub trait BitWriter: Sized {
+    fn index(&self) -> usize;
     fn version(&self) -> Option<u32>;
 
     fn write_int<T: Into<u32>>(&mut self, value: T, bit_count: usize) -> BitsyResult<()>;
@@ -91,4 +118,140 @@ pub fn bitsy_to_bits(bitsy: &impl Bitsy, version: u32) -> MyBitVec {
     let mut writer = BitVecWriter::new(version);
     bitsy.write_to(&mut writer).unwrap();
     writer.into_bits()
+}
+
+#[cfg(test)]
+pub mod testutils {
+    use std::cmp::min;
+
+    use super::*;
+
+    const DIFF_WINDOW: usize = 16;
+
+    fn find_first_difference(expected: &MyBitSlice, actual: &MyBitSlice) -> Option<usize> {
+        let mut index = 0;
+        while index < expected.len() && index < actual.len() {
+            if expected[index] != actual[index] {
+                return Some(index);
+            }
+            index += 1;
+        }
+        None
+    }
+
+    fn bit_at(bits: &MyBitSlice, index: usize) -> char {
+        if index < bits.len() {
+            if bits[index] {
+                '1'
+            } else {
+                '0'
+            }
+        } else {
+            '.'
+        }
+    }
+
+    fn as_bits(bits: &MyBitSlice, start: usize, end: usize) -> String {
+        let mut result = String::new();
+        for index in start..end {
+            result.push(bit_at(bits, index));
+        }
+        result
+    }
+
+    fn show_bitslice_around(bits: &MyBitSlice, index: usize) -> String {
+        let mut result = String::new();
+        if index > DIFF_WINDOW {
+            result.push_str(&format!(" ({} hidden bits) ... ", index - DIFF_WINDOW));
+        }
+
+        let window_start = if index > DIFF_WINDOW {
+            index - DIFF_WINDOW
+        } else {
+            0
+        };
+        result.push_str(&as_bits(bits, window_start, index));
+
+        result.push('[');
+        result.push(bit_at(bits, index));
+        result.push(']');
+
+        result.push_str(&as_bits(bits, index + 1, index + DIFF_WINDOW + 1));
+
+        if index + DIFF_WINDOW + 1 < bits.len() {
+            result.push_str(&format!(
+                " ... ({} hidden bits)",
+                bits.len() - index - DIFF_WINDOW
+            ));
+        }
+
+        result
+    }
+
+    pub struct BitsliceCompareError {
+        expected: String,
+        actual: String,
+        message: String,
+    }
+
+    impl Debug for BitsliceCompareError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            writeln!(f, "Bitslices differ!: {}", self.message)?;
+            writeln!(f, "Expected: {}", self.expected)?;
+            writeln!(f, "Actual:   {}", self.actual)?;
+            Ok(())
+        }
+    }
+
+    pub fn compare_bitslices(
+        expected: &MyBitSlice,
+        actual: &MyBitSlice,
+    ) -> Result<(), BitsliceCompareError> {
+        let first_difference = find_first_difference(expected, actual);
+
+        if expected.len() != actual.len() {
+            let first = first_difference.unwrap_or(min(expected.len(), actual.len()));
+            Err(BitsliceCompareError {
+                expected:  show_bitslice_around(expected, first),
+                actual:    show_bitslice_around(actual, first),
+                message:               format!(
+                "BitSlices sizes differ! Expected {} ({} bytes) bits, got {} ({} bytes). First difference at index {}",
+                expected.len(),
+                expected.len() / 8,
+                actual.len(),
+                actual.len() / 8,
+                first
+            )})
+        } else if let Some(first_difference) = first_difference {
+            Err(BitsliceCompareError {
+                expected: show_bitslice_around(expected, first_difference),
+                actual: show_bitslice_around(actual, first_difference),
+                message: format!(
+                    "BitSlices differ! First difference at index {}",
+                    first_difference
+                ),
+            })
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn random_bits(bit_count: usize) -> MyBitVec {
+        let mut bits = MyBitVec::new();
+        for _index in 0..bit_count {
+            bits.push(rand::random::<bool>());
+        }
+        bits
+    }
+
+    pub fn assert_reads_to<T: Bitsy + Eq>(bits: MyBitVec, expected: T) {
+        let mut reader = BitVecReader::new(bits);
+        let actual = reader.read().unwrap();
+        assert_eq!(expected, actual);
+        assert!(reader.read_tail().unwrap().is_empty());
+    }
+
+    pub fn bits<S: AsRef<str>>(bits: S) -> MyBitVec {
+        bits_from_str(bits).unwrap()
+    }
 }

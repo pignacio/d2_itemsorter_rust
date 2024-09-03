@@ -23,6 +23,10 @@ impl BitVecWriter {
 }
 
 impl BitWriter for BitVecWriter {
+    fn index(&self) -> usize {
+        self.bits.len()
+    }
+
     fn version(&self) -> Option<u32> {
         Some(self.version)
     }

@@ -2,11 +2,12 @@ use crate::{
     bitsy::{
         context,
         error::{BitsyError, BitsyErrorExt, BitsyErrorKind},
-        impls::{BitsyBytes, BitsyChars, BitsyInt},
-        macros::{bitsy_read, bitsy_write},
+        macros::{bitsy_cond_read, bitsy_read, bitsy_write},
         result::BitsyResult,
+        structs::{BitsyBytes, BitsyChars, BitsyInt},
         BitReader, BitSized, BitWriter, Bitsy, MyBitVec,
     },
+    constants::{ITEM_HEADER, MERC_HEADER},
     item::ItemList,
 };
 
@@ -137,6 +138,8 @@ pub struct Player {
     attributes: Attributes,
     skills: BitsyBytes<32>,
     items: ItemList,
+    corpse_info: Corpse,
+    mercenary_items: MercenaryItems,
 }
 
 impl Bitsy for Player {
@@ -171,6 +174,8 @@ impl Bitsy for Player {
             attributes,
             skills,
             items,
+            corpse_info,
+            mercenary_items,
         );
         Ok(Self {
             header,
@@ -200,6 +205,8 @@ impl Bitsy for Player {
             attributes,
             skills,
             items,
+            corpse_info,
+            mercenary_items,
         })
     }
 
@@ -233,50 +240,139 @@ impl Bitsy for Player {
             &self.attributes,
             &self.skills,
             &self.items,
+            &self.mercenary_items,
         );
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct Corpse {
+    is_dead: u16,
+    info: Option<CorpseInfo>,
+}
+
+impl Bitsy for Corpse {
+    fn parse<R: BitReader>(reader: &mut R) -> BitsyResult<Self> {
+        let header: [u8; 2] = reader.read()?;
+        if header != ITEM_HEADER {
+            return Err(BitsyErrorKind::InvalidData(format!(
+                "Invalid corpse header {:?} (expected {:?})",
+                header, ITEM_HEADER
+            ))
+            .at_bit(reader.index() - header.bit_size()));
+        }
+        bitsy_read!(reader, is_dead: u16);
+        bitsy_cond_read!(reader, is_dead != 0, info);
+        Ok(Self { is_dead, info })
+    }
+
+    fn write_to<W: BitWriter>(&self, writer: &mut W) -> BitsyResult<()> {
+        writer.write(&ITEM_HEADER)?;
+        bitsy_write!(writer, &self.is_dead, &self.info);
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct CorpseInfo {
+    unknown: BitsyBytes<4>,
+    x: u32,
+    y: u32,
+    items: ItemList,
+}
+
+impl Bitsy for CorpseInfo {
+    fn parse<R: BitReader>(reader: &mut R) -> BitsyResult<Self> {
+        bitsy_read!(reader, unknown, x, y, items);
+        Ok(Self {
+            unknown,
+            x,
+            y,
+            items,
+        })
+    }
+
+    fn write_to<W: BitWriter>(&self, writer: &mut W) -> BitsyResult<()> {
+        bitsy_write!(writer, &self.unknown, &self.x, &self.y, &self.items);
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct MercenaryItems {
+    items: Option<ItemList>,
+}
+
+impl Bitsy for MercenaryItems {
+    fn parse<R: BitReader>(reader: &mut R) -> BitsyResult<Self> {
+        let header: [u8; 2] = reader.read()?;
+        if header != MERC_HEADER {
+            return Err(BitsyErrorKind::InvalidData(format!(
+                "Invalid merc header {:?} (expected {:?})",
+                header, MERC_HEADER
+            ))
+            .at_bit(reader.index() - header.bit_size()));
+        }
+        let peek = reader.peek::<[u8; 2]>()?;
+        bitsy_cond_read!(reader, peek == ITEM_HEADER, items);
+        Ok(Self { items })
+    }
+
+    fn write_to<W: BitWriter>(&self, writer: &mut W) -> BitsyResult<()> {
+        writer.write(&MERC_HEADER)?;
+        bitsy_write!(writer, &self.items);
         Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::bitsy::{bitsy_to_bits, BitVecReader, BitVecWriter, HuffmanChars};
+    use std::rc::Rc;
 
-    fn compare_bitvecs(expected: &MyBitVec, actual: &MyBitVec) -> Result<(), String> {
-        if expected.len() != actual.len() {
-            return Err(format!(
-                "BitVec sizes differ! Expected {} ({} bytes) bits, got {} ({} bytes)",
-                expected.len(),
-                expected.len() / 8,
-                actual.len(),
-                actual.len() / 8
-            ));
-        }
-        for (index, (expected_bit, actual_bit)) in expected.iter().zip(actual.iter()).enumerate() {
-            if expected_bit != actual_bit {
-                return Err(format!(
-                    "Bit at index {index} (byte {}) differs! Expected {expected_bit}, got {actual_bit}",
-                    index /8,
-                ));
-            }
-        }
-        Ok(())
-    }
+    use crate::{
+        bitsy::{
+            bitsy_to_bits, testutils::compare_bitslices, BitVecReader, BitVecWriter, HuffmanChars,
+        },
+        item::info::{ItemDb, MapItemDb},
+    };
+
+    //fn compare_bitvecs(expected: &MyBitVec, actual: &MyBitVec) -> Result<(), String> {
+    //    if expected.len() != actual.len() {
+    //        return Err(format!(
+    //            "BitVec sizes differ! Expected {} ({} bytes) bits, got {} ({} bytes)",
+    //            expected.len(),
+    //            expected.len() / 8,
+    //            actual.len(),
+    //            actual.len() / 8
+    //        ));
+    //    }
+    //    for (index, (expected_bit, actual_bit)) in expected.iter().zip(actual.iter()).enumerate() {
+    //        if expected_bit != actual_bit {
+    //            return Err(format!(
+    //                "Bit at index {index} (byte {}) differs! Expected {expected_bit}, got {actual_bit}",
+    //                index /8,
+    //            ));
+    //        }
+    //    }
+    //    Ok(())
+    //}
 
     use super::*;
     #[test]
     fn it_works() {
-        let bytes = std::fs::read("examples/PlasticSurgeon.d2s").unwrap();
+        let item_db: Rc<dyn ItemDb> = Rc::new(MapItemDb::from_data_dir("data/items"));
+        let bytes = std::fs::read("examples/LaCopperfield.d2s").unwrap();
         let bits = MyBitVec::from_vec(bytes);
 
-        let mut reader = BitVecReader::new(bits.clone());
+        let mut reader = BitVecReader::with_item_db(bits.clone(), item_db);
 
         let chars = HuffmanChars::<4>::new(['m', 'f', 'd', ' ']);
         let charbits = bitsy_to_bits(&chars, 0);
         reader.report_search(&charbits);
 
         let player = Player::parse(&mut reader).unwrap();
-        println!("Parsed player: {:#?}", player);
+        //println!("Parsed player: {:#?}", player);
         reader.report_next_bytes(32);
         let tail = reader.read_tail().unwrap();
         println!("Tail was {} bits long", tail.len());
@@ -287,6 +383,6 @@ mod tests {
 
         let new_bits = writer.into_bits();
 
-        compare_bitvecs(&bits, &new_bits).unwrap();
+        compare_bitslices(&bits, &new_bits).unwrap();
     }
 }

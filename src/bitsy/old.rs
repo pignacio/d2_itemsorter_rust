@@ -7,6 +7,20 @@ pub type MyBitOrder = Lsb0;
 pub type MyBitVec = BitVec<MyBitOrder, u8>;
 pub type MyBitSlice = BitSlice<MyBitOrder, u8>;
 
+pub fn bits_from_str<S: AsRef<str>>(bits: S) -> Result<MyBitVec, String> {
+    let mut bit_vec = MyBitVec::new();
+    for (index, bit) in bits.as_ref().chars().enumerate() {
+        if bit != ' ' {
+            bit_vec.push(match bit {
+                '0' => false,
+                '1' => true,
+                _ => return Err(format!("Invalid bit @ index {index}: '{bit}'")),
+            });
+        }
+    }
+    Ok(bit_vec)
+}
+
 pub fn bit_view(bit_vec: &MyBitVec, start: usize, size: usize) -> String {
     bit_vec[start..std::cmp::min(start + size, bit_vec.len())]
         .to_string()

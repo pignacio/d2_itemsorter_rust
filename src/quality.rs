@@ -1,10 +1,13 @@
-use error::{BitsyError, BitsyErrorKind};
-use impls::{Bits, BitsyInt, BitsyOption};
-use macros::{bitsy_read, bitsy_write};
-use result::BitsyResult;
 use serde::{Deserialize, Serialize};
 
-use crate::bitsy::*;
+use crate::bitsy::{
+    context,
+    error::{BitsyError, BitsyErrorKind},
+    macros::{bitsy_read, bitsy_write},
+    result::BitsyResult,
+    structs::{Bits, BitsyInt, BitsyOption},
+    BitReader, BitSized, BitWriter, Bitsy, MyBitVec, OldBitReader, OldBitWriter,
+};
 use std::fmt::{Display, Formatter};
 
 pub const SET_QUALITY_ID: u8 = 5;

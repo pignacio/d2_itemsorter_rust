@@ -1,8 +1,11 @@
-use std::{any::type_name, cmp::min, convert::TryInto, prelude::rust_2021::TryFrom};
+use std::{any::type_name, cmp::min, convert::TryInto, prelude::rust_2021::TryFrom, rc::Rc};
 
-use crate::item::{
-    info::{ItemDb, MapItemDb},
-    properties::{MapPropertyDb, PropertyDb},
+use crate::{
+    bitsy::parse_int,
+    item::{
+        info::{ItemDb, MapItemDb},
+        properties::{MapPropertyDb, PropertyDb},
+    },
 };
 
 use super::{
@@ -16,26 +19,7 @@ pub struct BitVecReader {
     bits: MyBitVec,
     index: usize,
     context: ContextMap,
-}
-
-fn parse_int(bits: &MyBitSlice) -> Result<u32, String> {
-    if bits.len() > 32 {
-        return Err("Ints > 32 bits not supported".to_string());
-    }
-    let mut res: u32 = 0;
-    let mut multiplier = 1u64;
-
-    for bit in bits {
-        if *bit {
-            let multiplier: u32 = multiplier
-                .try_into()
-                .map_err(|_| "Multiplier was too big, should not happen".to_string())?;
-            res += multiplier
-        }
-        multiplier *= 2;
-    }
-
-    Ok(res)
+    item_db: Rc<dyn ItemDb>,
 }
 
 fn int_to_printable_char(int: u32) -> char {
@@ -51,6 +35,16 @@ impl BitVecReader {
             bits,
             index: 0,
             context: ContextMap::new(),
+            item_db: Rc::new(MapItemDb::new()),
+        }
+    }
+
+    pub fn with_item_db(bits: MyBitVec, item_db: Rc<dyn ItemDb>) -> Self {
+        Self {
+            bits,
+            index: 0,
+            context: ContextMap::new(),
+            item_db,
         }
     }
 
@@ -78,8 +72,8 @@ impl BitReader for BitVecReader {
             .ok_or_else(|| self.error(BitsyErrorKind::MissingContext(key.as_str().to_string())))
     }
 
-    fn item_db(&self) -> impl ItemDb {
-        MapItemDb::new()
+    fn item_db(&self) -> Rc<dyn ItemDb> {
+        self.item_db.clone()
     }
 
     fn property_db(&self) -> impl PropertyDb {

@@ -34,6 +34,7 @@ impl<T: ContextValue> ContextKey<T> {
 lazy_static::lazy_static! {
     pub static ref VERSION: ContextKey<u32> = ContextKey::new("version");
     pub static ref HAS_SOCKETS: ContextKey<bool> = ContextKey::new("has_sockets");
+    pub static ref HAS_RUNEWORD: ContextKey<bool> = ContextKey::new("has_runeword");
     pub static ref ITEM_INFO: ContextKey<ItemInfo> = ContextKey::new("item_info");
     pub static ref QUALITY_ID: ContextKey<QualityId> = ContextKey::new("quality_id");
 }

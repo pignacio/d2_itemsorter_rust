@@ -2,20 +2,19 @@ use std::fmt::{Debug, Display, Formatter};
 
 use bitvec::prelude::*;
 
-use bitsy::*;
-use error::BitsyError;
-use error::BitsyErrorExt;
-use error::BitsyErrorKind;
-use impls::Bits;
-use impls::BitsyBytes;
-use impls::BitsyInt;
-use impls::BitsyOption;
-use macros::bitsy_read;
-use macros::bitsy_write;
-use result::BitsyResult;
+use crate::{
+    bitsy::{
+        bits_from_str, bitsy_to_bits, context,
+        error::{BitsyError, BitsyErrorExt, BitsyErrorKind},
+        macros::{bitsy_cond_read, bitsy_read, bitsy_write},
+        parse_int,
+        result::BitsyResult,
+        structs::{Bits, BitsyBytes, BitsyInt, BitsyOption},
+        BitReader, BitSized, BitWriter, Bitsy, HuffmanChars, MyBitVec, OldBitReader, OldBitWriter,
+    },
+    constants,
+};
 
-use crate::bitsy;
-use crate::constants;
 use crate::item::info::ItemInfo;
 use crate::item::properties::PropertyList;
 use crate::item::reader::ItemReader;
@@ -499,7 +498,7 @@ pub struct NewItem {
     unknown6: Bits<15>,
     x: BitsyInt<u8, 4>,
     y: BitsyInt<u8, 4>,
-    unknown7: Bits<3>,
+    location: BitsyInt<u8, 3>,
     item_type: HuffmanChars<4>,
     item_info: ItemInfo,
     extended_info: Option<NewExtendedInfo>,
@@ -507,16 +506,18 @@ pub struct NewItem {
     //specific_info: Option<SpecificInfo>,
     item_properties: Option<NewPropertyList>,
     //// TODO: replace with item
+    socketed_items: Vec<NewItem>,
     //gems: Vec<u8>,
     //tail: MyBitVec,
 }
 
 impl Bitsy for NewItem {
     fn parse<R: BitReader>(reader: &mut R) -> BitsyResult<Self> {
-        let chars = HuffmanChars::<4>::new(['m', 'f', 'd', ' ']);
-        let charbits = bitsy_to_bits(&chars, 0);
-        reader.report_search(&charbits);
-
+        let _reset = reader.queue_context_reset();
+        //let chars = HuffmanChars::<4>::new(['m', 'f', 'd', ' ']);
+        //let charbits = bitsy_to_bits(&chars, 0);
+        //reader.report_search(&charbits);
+        //
         let version = reader.get_context(&context::VERSION)?;
         if version < 97 {
             let header: [u8; 2] = reader.read()?;
@@ -546,31 +547,44 @@ impl Bitsy for NewItem {
             unknown6,
             x,
             y,
-            unknown7,
+            location,
             item_type,
         );
-        let item_info = ItemInfo::default();
+        reader.set_context(&context::HAS_RUNEWORD, has_runeword);
+        let x: BitsyInt<u8, 4> = x;
+        let y: BitsyInt<u8, 4> = y;
+        let location: BitsyInt<u8, 3> = location;
+        let simple: bool = simple;
+        println!(
+            "Found item type: {item_type:?} @({},{})[{}] s:{simple} index:{}",
+            &x.value(),
+            &y.value(),
+            &location.value(),
+            reader.index(),
+        );
+        let item_type: HuffmanChars<4> = item_type;
+        let item_info = reader.item_db().get_info(&item_type.as_string());
         reader.set_context(&context::HAS_SOCKETS, socketed);
         reader.set_context(&context::ITEM_INFO, item_info.clone());
-        let extended_info = if simple {
-            None
-        } else {
-            Some(reader.read().prepend_path("extended_info")?)
-        };
-        let item_properties = if simple {
-            None
-        } else {
-            Some(reader.read().prepend_path("item_properties")?)
-        };
-        //let extended_info = ExtendedInfo {
-        //    guid: [0,0,0,0],
-        //    drop_level: 63,
-        //    quality: Box::new(NormalQuality::default()),
-        //    gfx: None,
-        //    class_info: todo!(),
-        //}
-        //
+        bitsy_cond_read!(reader, !simple, extended_info, item_properties,);
+        println!("ItemProps: {:?}", item_properties);
+
+        let mut socketed_items = Vec::new();
+        let gem_count = extended_info
+            .as_ref()
+            .map(|info: &NewExtendedInfo| info.gem_count.value())
+            .filter(|_| socketed)
+            .unwrap_or(0);
+
         reader.read_padding()?;
+
+        for index in 0..gem_count as usize {
+            let item = reader
+                .read()
+                .prepend_index(index)
+                .prepend_path("socketed_items")?;
+            socketed_items.push(item);
+        }
 
         Ok(NewItem {
             unknown1,
@@ -587,11 +601,12 @@ impl Bitsy for NewItem {
             unknown6,
             x,
             y,
-            unknown7,
+            location,
             item_type,
             item_info,
             extended_info,
             item_properties,
+            socketed_items,
         })
     }
 
@@ -618,9 +633,13 @@ impl Bitsy for NewItem {
             &self.unknown6,
             &self.x,
             &self.y,
-            &self.unknown7,
+            &self.location,
             &self.item_type,
+            &self.extended_info,
+            &self.item_properties,
         );
+
+        writer.write_padding()?;
         Ok(())
     }
 }
@@ -632,7 +651,7 @@ pub struct ItemList {
 
 impl Bitsy for ItemList {
     fn parse<R: BitReader>(reader: &mut R) -> BitsyResult<Self> {
-        let _reset = reader.queue_context_reset();
+        reader.report_search(&bits_from_str("111111111").unwrap());
         let header: [u8; 2] = reader.read()?;
         if header != ITEM_HEADER {
             return Err(BitsyError::new(
@@ -645,10 +664,12 @@ impl Bitsy for ItemList {
         }
 
         let count: u16 = reader.read()?;
-        println!("Item count: {}", count);
+        println!("Item count: {}. Index: {}", count, reader.index());
         let mut items = Vec::new();
-        for _ in 0..count {
-            items.push(reader.read()?);
+        for index in 0..count {
+            let item = reader.read().prepend_index(index.into())?;
+            println!("Item {}: {item:?}", index);
+            items.push(item);
         }
 
         Ok(ItemList { items })
@@ -672,6 +693,15 @@ struct NewExtendedInfo {
     gfx: BitsyOption<BitsyInt<u8, 3>>,
     class_info: BitsyOption<Bits<11>>,
     quality: ItemQuality,
+    runeword: Option<Bits<16>>,
+    //realm_data_present: bool,
+    //realm_data_present: BitsyOption<Bits<128>>,
+    defense: Option<BitsyInt<u16, 11>>,
+    max_durability: Option<BitsyInt<u16, 9>>,
+    current_durability: Option<BitsyInt<u16, 9>>,
+    quantity: Option<BitsyInt<u16, 9>>,
+    set_item_mods: Option<Bits<5>>,
+    socket_count: Option<BitsyInt<u8, 4>>,
 }
 
 impl Bitsy for NewExtendedInfo {
@@ -680,6 +710,50 @@ impl Bitsy for NewExtendedInfo {
         let quality_id: QualityId = reader.read()?;
         reader.set_context(&context::QUALITY_ID, quality_id);
         bitsy_read!(reader, gfx, class_info, quality);
+        let runeword = reader
+            .get_context(&context::HAS_RUNEWORD)
+            .ok()
+            .filter(|v| *v)
+            .map(|_| reader.read().prepend_path("runeword"))
+            .transpose()?;
+
+        //bitsy_read!(reader, realm_data_present);
+        let item_info = reader.get_context(&context::ITEM_INFO)?;
+
+        let defense = if item_info.has_defense {
+            Some(reader.read().prepend_path("defense")?)
+        } else {
+            None
+        };
+
+        let max_durability: Option<BitsyInt<u16, 9>> = if item_info.has_durability {
+            Some(reader.read().prepend_path("max_durability")?)
+        } else {
+            None
+        };
+
+        let current_durability: Option<BitsyInt<u16, 9>> = max_durability
+            .filter(|d| d.value() > 0)
+            .map(|_| reader.read().prepend_path("current_durability"))
+            .transpose()?;
+
+        let quantity: Option<BitsyInt<u16, 9>> = if item_info.has_quantity {
+            Some(reader.read().prepend_path("quantity")?)
+        } else {
+            None
+        };
+
+        let set_item_mods: Option<Bits<5>> = match quality {
+            ItemQuality::Set { .. } => Some(reader.read().prepend_path("set_item_mods")?),
+            _ => None,
+        };
+
+        let socket_count: Option<BitsyInt<u8, 4>> = reader
+            .get_context(&context::HAS_SOCKETS)
+            .ok()
+            .filter(|v| *v)
+            .map(|_| reader.read().prepend_path("socket_count"))
+            .transpose()?;
 
         Ok(NewExtendedInfo {
             gem_count,
@@ -688,30 +762,15 @@ impl Bitsy for NewExtendedInfo {
             gfx,
             class_info,
             quality,
+            runeword,
+            //realm_data_present,
+            defense,
+            max_durability,
+            current_durability,
+            quantity,
+            set_item_mods,
+            socket_count,
         })
-        //let mut info = ExtendedInfo {
-        //    guid: [0u8; 4],
-        //    drop_level: 0,
-        //    quality: Box::new(NormalQuality::default()),
-        //    gfx: None,
-        //    class_info: None,
-        //};
-        //
-        //let gem_count: u8 = bits.read_int(3); // 3 (111)
-        //info.guid = bits.read_byte_arr(); // 35 (143)
-        //info.drop_level = bits.read_int(7); // 42 (150)
-        //let quality_id: u8 = bits.read_int(4); // 46 (154)
-        //info.gfx = bits.read_optional_int(3); // 49 (157)
-        //info.class_info = bits.read_optional_bits(11); // 60 (168)
-        //info.quality = ExtendedInfo::parse_quality(quality_id, bits); // ?? (???)
-        //if has_runeword {
-        //    item.runeword = Some(bits.read_int(16));
-        //}
-        //if inscribed {
-        //    panic!("We do not support inscribed items yet");
-        //}
-        //
-        //return (info, gem_count);
     }
 
     fn write_to<W: BitWriter>(&self, writer: &mut W) -> BitsyResult<()> {
@@ -723,23 +782,30 @@ impl Bitsy for NewExtendedInfo {
 }
 
 lazy_static::lazy_static! {
-    pub static ref PROPERTY_TERMINATOR: MyBitVec = {
-        let mut vec = MyBitVec::new();
-        for _ in 0..9 {
-            vec.append_bool(true);
-        }
-        vec
-    };
+    pub static ref PROPERTY_TERMINATOR: MyBitVec = bits_from_str("111111111").unwrap();
 }
 
 struct NewPropertyList {
     tail: MyBitVec,
 }
 
+impl NewPropertyList {
+    fn first_unknown_id(&self) -> Option<String> {
+        if self.tail.is_empty() {
+            return None;
+        } else if self.tail.len() < 9 {
+            return Some("TOO SHORT!!".to_string());
+        } else {
+            return Some(parse_int(&self.tail[..9]).unwrap().to_string());
+        }
+    }
+}
+
 impl Debug for NewPropertyList {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("NewPropertyList")
             .field("tail", &self.tail.to_string())
+            .field("first_unk_id", &self.first_unknown_id())
             .finish()
     }
 }
@@ -757,6 +823,33 @@ impl Bitsy for NewPropertyList {
     }
 
     fn write_to<W: BitWriter>(&self, writer: &mut W) -> BitsyResult<()> {
-        todo!()
+        writer.write_bits(&self.tail)?;
+        writer.write_bits(&PROPERTY_TERMINATOR)?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::bitsy::{testutils::compare_bitslices, BitVecReader, BitVecWriter};
+
+    use super::*;
+
+    #[test]
+    fn parse_item() {
+        let bytes = std::fs::read("examples/ItemD2R.bin").unwrap();
+        let bits = MyBitVec::from_vec(bytes);
+        let mut reader = BitVecReader::new(bits.clone());
+        reader.set_context(&context::VERSION, 99);
+        let item: NewItem = reader.read().unwrap();
+        let tail = reader.read_tail().unwrap();
+        println!("Remaining bits: {} {} ", tail.len(), tail);
+        println!("Parsed item: {:#?}", item);
+
+        let mut writer = BitVecWriter::new(99);
+        writer.write(&item).unwrap();
+        writer.write_bits(&tail).unwrap();
+
+        compare_bitslices(&bits, &writer.into_bits()).unwrap();
     }
 }

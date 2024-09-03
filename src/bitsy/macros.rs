@@ -22,3 +22,16 @@ macro_rules! bitsy_write {
     };
 }
 pub(crate) use bitsy_write;
+
+macro_rules! bitsy_cond_read {
+    ($reader:ident, $cond:expr $(, $dest:ident $(: $type:ty)?)+ $(,)?) => {
+        $(
+        let $dest $(: $type)? = if $cond {
+            Some($crate::bitsy::error::BitsyErrorExt::prepend_path($reader.read(), stringify!($dest))?)
+        } else {
+            None
+        };
+        )+
+    };
+}
+pub(crate) use bitsy_cond_read;
