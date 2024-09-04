@@ -5,6 +5,21 @@ use bitvec::view::BitViewSized;
 
 pub type MyBitOrder = Lsb0;
 pub type MyBitVec = BitVec<MyBitOrder, u8>;
+pub type MyBitSlice = BitSlice<MyBitOrder, u8>;
+
+pub fn bits_from_str<S: AsRef<str>>(bits: S) -> Result<MyBitVec, String> {
+    let mut bit_vec = MyBitVec::new();
+    for (index, bit) in bits.as_ref().chars().enumerate() {
+        if bit != ' ' {
+            bit_vec.push(match bit {
+                '0' => false,
+                '1' => true,
+                _ => return Err(format!("Invalid bit @ index {index}: '{bit}'")),
+            });
+        }
+    }
+    Ok(bit_vec)
+}
 
 pub fn bit_view(bit_vec: &MyBitVec, start: usize, size: usize) -> String {
     bit_vec[start..std::cmp::min(start + size, bit_vec.len())]
@@ -12,15 +27,15 @@ pub fn bit_view(bit_vec: &MyBitVec, start: usize, size: usize) -> String {
         .replace(", ", "")
 }
 
-pub struct BitReader {
+pub struct OldBitReader {
     bytes: Vec<u8>,
     bits: MyBitVec,
     index: usize,
 }
 
-impl BitReader {
-    pub fn new(bytes: Vec<u8>) -> BitReader {
-        return BitReader {
+impl OldBitReader {
+    pub fn new(bytes: Vec<u8>) -> OldBitReader {
+        return OldBitReader {
             bytes: bytes.to_vec(),
             bits: BitVec::from_vec(bytes),
             index: 0,
@@ -207,7 +222,7 @@ impl BitReader {
     }
 }
 
-pub trait BitWriter {
+pub trait OldBitWriter {
     fn append_u32(&mut self, value: u32);
     fn append_u16(&mut self, value: u16);
     fn append_bool(&mut self, value: bool);
@@ -219,7 +234,7 @@ pub trait BitWriter {
     fn append_optional_byte_arr<const N: usize>(&mut self, optional: &Option<[u8; N]>);
 }
 
-impl BitWriter for MyBitVec {
+impl OldBitWriter for MyBitVec {
     fn append_u32(&mut self, value: u32) {
         self.append_int(value, 32);
     }

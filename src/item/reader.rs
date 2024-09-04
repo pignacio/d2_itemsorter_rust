@@ -1,19 +1,19 @@
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 
-use crate::bitsy::BitReader;
+use crate::bitsy::OldBitReader;
 use crate::item::info::ItemDb;
 use crate::item::properties::PropertyDb;
 
 pub struct ItemReader {
-    reader: BitReader,
+    reader: OldBitReader,
     item_db: Rc<dyn ItemDb>,
     property_db: Rc<dyn PropertyDb>,
 }
 
 impl ItemReader {
     pub fn new(
-        reader: BitReader,
+        reader: OldBitReader,
         item_db: Rc<dyn ItemDb>,
         property_db: Rc<dyn PropertyDb>,
     ) -> Self {
@@ -37,7 +37,7 @@ impl ItemReader {
 }
 
 impl Deref for ItemReader {
-    type Target = BitReader;
+    type Target = OldBitReader;
 
     fn deref(&self) -> &Self::Target {
         &self.reader

@@ -1,2 +1,4 @@
 pub const PAGE_HEADER: [u8; 5] = [0x53, 0x54, 0x00, 0x4a, 0x4d];
 pub const ITEM_HEADER: [u8; 2] = [0x4a, 0x4d];
+pub const MERC_HEADER: [u8; 2] = [0x6A, 0x66];
+pub const IRON_GOLEM_HEADER: [u8; 2] = [0x6B, 0x66];

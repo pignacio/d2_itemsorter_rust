@@ -4,7 +4,8 @@ version = "0.1.0"
 authors = ["Ignacio"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+# [lib]
+# proc-macro = true
 
 [dependencies]
 bit-array = "0.4.4"
@@ -12,3 +13,11 @@ bit-vec = "0.6.3"
 bitvec = "0.22.3"
 bitvec-rs = "0.2.0"
 csv = "1.1.6"
+lazy_static = "1.5.0"
+rand = "0.8.5"
+serde = { version = "1.0.209", features = ["derive"] }
+serde_json = "1.0.127"
+
+
+[lints.rust]
+unused_must_use = "deny"
