@@ -112,7 +112,7 @@ impl Bitsy for Attributes {
 #[derive(Debug)]
 pub struct Player {
     header: BitsyBytes<4>,
-    version: u32,
+    pub version: u32,
     file_size: u32,
     checksum: u32,
     active_weapon: u32,
@@ -243,6 +243,7 @@ impl Bitsy for Player {
             &self.attributes,
             &self.skills,
             &self.items,
+            &self.corpse_info,
             &self.mercenary_items,
             &self.golem_info,
         );
@@ -409,7 +410,7 @@ mod tests {
         reader.report_search(&charbits);
 
         let player = Player::parse(&mut reader).unwrap();
-        //println!("Parsed player: {:#?}", player);
+        println!("Parsed player: {:#?}", player);
         reader.report_next_bytes(32);
         let tail = reader.read_tail().unwrap();
         println!("Tail was {} bits long", tail.len());

@@ -10,7 +10,6 @@ pub mod structs;
 mod writer;
 
 use std::{
-    any::type_name,
     cmp::min,
     convert::{TryFrom, TryInto},
     fmt::Debug,
@@ -62,6 +61,7 @@ pub trait BitReader: Sized {
     fn read_padding(&mut self) -> BitsyResult<()>;
     fn read_tail(&mut self) -> BitsyResult<MyBitVec>;
     fn read_until(&mut self, bits: &MyBitVec) -> BitsyResult<MyBitVec>;
+    fn read_property_tail(&mut self) -> BitsyResult<MyBitVec>;
 
     fn read<T: Bitsy>(&mut self) -> BitsyResult<T> {
         T::parse(self)

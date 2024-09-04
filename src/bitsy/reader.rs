@@ -9,6 +9,7 @@ use crate::{
 };
 
 use super::{
+    bits_from_str,
     context::{ContextKey, ContextMap, ContextValue},
     error::{BitsyError, BitsyErrorKind},
     result::BitsyResult,
@@ -126,6 +127,9 @@ impl BitReader for BitVecReader {
     fn read_padding(&mut self) -> BitsyResult<()> {
         if self.index % 8 != 0 {
             let padding = 8 - (self.index % 8);
+            if self.bits[self.index..self.index + padding].any() {
+                return Err(self.error(BitsyErrorKind::InvalidData("Padding not zero".to_string())));
+            }
             // read_padding does not fail if there is not enough data
             self.index = min(self.index + padding, self.bits.len());
         }
@@ -146,6 +150,23 @@ impl BitReader for BitVecReader {
             .unwrap_or_else(|| self.bits[self.index..].to_owned());
         self.index += result.len();
         Ok(result)
+    }
+
+    fn read_property_tail(&mut self) -> BitsyResult<MyBitVec> {
+        let terminator = bits_from_str("111 111 111").unwrap();
+        let mut match_index = self.index
+            + self.search(&terminator, 0).ok_or_else(|| {
+                self.error(BitsyErrorKind::InvalidData(
+                    "Could not find property tail".to_string(),
+                ))
+            })?;
+        while match_index + 9 < self.bits.len() && self.bits[match_index + 9] {
+            match_index += 1;
+        }
+
+        let tail = self.bits[self.index..match_index].to_owned();
+        self.index = match_index + 9;
+        Ok(tail)
     }
 
     fn report_next_bytes(&self, count: usize) {

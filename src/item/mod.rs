@@ -127,13 +127,6 @@ impl Item {
         });
 
         let end = bits.index();
-        // println!(
-        //     "     Parsed! {} bits:({}:{}, len:{})",
-        //     item,
-        //     start,
-        //     end,
-        //     end - start
-        // );
         let mut written_bits = MyBitVec::new();
         item.append_to(&mut written_bits);
 
@@ -562,16 +555,6 @@ impl Bitsy for NewItem {
         let y: BitsyInt<u8, 4> = y;
         let location: BitsyInt<u8, 3> = location;
         let simple: bool = simple;
-        println!(
-            "Found item type: {item_type:?} start_bit:{start_bit} start_byte:({},{:X}) @({},{})[{}] s:{simple} index:{} unk1:{:?}",
-            start_bit / 8,
-            start_bit / 8,
-            &x.value(),
-            &y.value(),
-            &location.value(),
-            reader.index(),
-            unknown1,
-        );
         let item_type: HuffmanChars<4> = item_type;
         let item_info = reader.item_db().get_info(&item_type.as_string());
         reader.set_context(&context::HAS_SOCKETS, socketed);
@@ -636,22 +619,12 @@ impl Bitsy for NewItem {
     }
 
     fn write_to<W: BitWriter>(&self, writer: &mut W) -> BitsyResult<()> {
-        println!(
-            "Writing item '{}' starting @ bit {}",
-            self.item_type.as_string(),
-            writer.index(),
-        );
         let version = writer
             .version()
             .ok_or_else(|| BitsyError::new(BitsyErrorKind::MissingVersion, 0))?;
         if version < 97 {
             writer.write(&ITEM_HEADER)?;
         }
-        println!(
-            "Writing unk1: {:?}, index:{}",
-            self.unknown1,
-            writer.index()
-        );
         bitsy_write!(
             writer,
             &self.unknown1,
@@ -703,7 +676,6 @@ impl Bitsy for ItemList {
         }
 
         let count: u16 = reader.read()?;
-        println!("Item count: {}. Index: {}", count, reader.index());
         let mut items = Vec::new();
         for index in 0..count {
             let item = reader.read().prepend_index(index.into())?;
@@ -850,12 +822,7 @@ impl Debug for NewPropertyList {
 
 impl Bitsy for NewPropertyList {
     fn parse<R: BitReader>(reader: &mut R) -> BitsyResult<Self> {
-        let tail = reader
-            .read_until(&PROPERTY_TERMINATOR)
-            .prepend_path("tail")?;
-
-        // Consume PROPERTY_TERMINATOR
-        reader.read_bits(9).prepend_path("terminator")?;
+        let tail = reader.read_property_tail().prepend_path("tail")?;
 
         Ok(NewPropertyList { tail })
     }
