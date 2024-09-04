@@ -504,8 +504,9 @@ pub struct NewItem {
     item_info: ItemInfo,
     extended_info: Option<NewExtendedInfo>,
     item_properties: Option<NewPropertyList>,
-    socketed_items: Vec<NewItem>,
     runeword_properties: Option<NewPropertyList>,
+    has_extra_padding: bool,
+    socketed_items: Vec<NewItem>,
     //tail: MyBitVec,
 }
 
@@ -562,13 +563,14 @@ impl Bitsy for NewItem {
         let location: BitsyInt<u8, 3> = location;
         let simple: bool = simple;
         println!(
-            "Found item type: {item_type:?} start_bit:{start_bit} start_byte:({},{:X}) @({},{})[{}] s:{simple} index:{}",
+            "Found item type: {item_type:?} start_bit:{start_bit} start_byte:({},{:X}) @({},{})[{}] s:{simple} index:{} unk1:{:?}",
             start_bit / 8,
             start_bit / 8,
             &x.value(),
             &y.value(),
             &location.value(),
             reader.index(),
+            unknown1,
         );
         let item_type: HuffmanChars<4> = item_type;
         let item_info = reader.item_db().get_info(&item_type.as_string());
@@ -577,7 +579,6 @@ impl Bitsy for NewItem {
         //reader.report_next_bytes(512);
         bitsy_cond_read!(reader, !simple, extended_info, item_properties,);
 
-        let mut socketed_items = Vec::new();
         let gem_count = extended_info
             .as_ref()
             .map(|info: &NewExtendedInfo| info.gem_count.value())
@@ -588,10 +589,18 @@ impl Bitsy for NewItem {
 
         reader.read_padding()?;
 
-        if item_type.as_string() == "9pa " || item_type.as_string() == "box " {
+        let has_extra_padding = if reader.peek::<u8>()? == 0 {
+            let _: u8 = reader.read()?;
+            true
+        } else {
+            false
+        };
+
+        if item_type.as_string() == "rvl " || item_type.as_string() == "box " {
             reader.report_next_bytes(30);
         }
 
+        let mut socketed_items = Vec::new();
         for index in 0..gem_count as usize {
             let item = reader
                 .read()
@@ -620,8 +629,9 @@ impl Bitsy for NewItem {
             item_info,
             extended_info,
             item_properties,
-            socketed_items,
             runeword_properties,
+            has_extra_padding,
+            socketed_items,
         })
     }
 
@@ -629,7 +639,7 @@ impl Bitsy for NewItem {
         println!(
             "Writing item '{}' starting @ bit {}",
             self.item_type.as_string(),
-            writer.index()
+            writer.index(),
         );
         let version = writer
             .version()
@@ -637,6 +647,11 @@ impl Bitsy for NewItem {
         if version < 97 {
             writer.write(&ITEM_HEADER)?;
         }
+        println!(
+            "Writing unk1: {:?}, index:{}",
+            self.unknown1,
+            writer.index()
+        );
         bitsy_write!(
             writer,
             &self.unknown1,
@@ -657,11 +672,14 @@ impl Bitsy for NewItem {
             &self.item_type,
             &self.extended_info,
             &self.item_properties,
-            &self.socketed_items,
             &self.runeword_properties,
         );
 
         writer.write_padding()?;
+        if self.has_extra_padding {
+            writer.write(&0u8)?;
+        }
+        bitsy_write!(writer, &self.socketed_items);
         Ok(())
     }
 }
@@ -697,7 +715,7 @@ impl Bitsy for ItemList {
 
     fn write_to<W: BitWriter>(&self, writer: &mut W) -> BitsyResult<()> {
         writer.write(&ITEM_HEADER)?;
-        writer.write_int(self.items.len() as u32, 16)?;
+        writer.write(&(self.items.len() as u16))?;
         for item in &self.items {
             writer.write(item)?;
         }
