@@ -72,10 +72,7 @@ impl<const N: usize> Debug for BitsyBytes<N> {
 
 #[cfg(test)]
 mod tests {
-    use crate::bitsy::{
-        testutils::{bits, compare_bitslices},
-        BitVecReader, BitVecWriter, MyBitVec,
-    };
+    use crate::bitsy::{compare_bitslices, testutils::bits, BitVecReader, BitVecWriter, MyBitVec};
 
     use super::*;
 

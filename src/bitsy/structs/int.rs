@@ -65,9 +65,8 @@ impl<T: BitsyIntTarget, const N: usize> BitSized for BitsyInt<T, N> {
 #[cfg(test)]
 mod tests {
     use crate::bitsy::{
-        bits_from_str,
-        testutils::{compare_bitslices, random_bits},
-        BitVecReader, BitVecWriter, MyBitVec,
+        bits_from_str, compare_bitslices, testutils::random_bits, BitVecReader, BitVecWriter,
+        MyBitVec,
     };
 
     use super::*;

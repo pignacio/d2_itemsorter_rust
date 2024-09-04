@@ -24,6 +24,7 @@ pub enum BitsyErrorKind {
     InvalidData(String),
     MissingVersion,
     MissingContext(String),
+    InvalidAction(String),
 }
 
 impl BitsyErrorKind {

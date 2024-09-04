@@ -57,9 +57,7 @@ impl<const N: usize> BitSized for Bits<N> {
 #[cfg(test)]
 mod tests {
     use crate::bitsy::{
-        bits_from_str,
-        testutils::{compare_bitslices, random_bits},
-        BitVecReader, BitVecWriter,
+        bits_from_str, compare_bitslices, testutils::random_bits, BitVecReader, BitVecWriter,
     };
 
     use super::*;

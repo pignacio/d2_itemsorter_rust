@@ -1,4 +1,7 @@
-use super::{error::BitsyErrorExt, BitReader, BitSized, BitWriter, Bitsy, BitsyResult, MyBitVec};
+use super::{
+    error::{BitsyErrorExt, BitsyErrorKind},
+    BitReader, BitSized, BitWriter, Bitsy, BitsyResult, MyBitVec,
+};
 
 macro_rules! integer_bitsy_impl {
     ($ty:ty) => {
@@ -79,5 +82,21 @@ impl<T: Bitsy> Bitsy for Option<T> {
 impl BitSized for MyBitVec {
     fn bit_size(&self) -> usize {
         self.len()
+    }
+}
+
+impl<T: Bitsy> Bitsy for Vec<T> {
+    fn parse<R: BitReader>(reader: &mut R) -> BitsyResult<Self> {
+        Err(
+            BitsyErrorKind::InvalidAction("Cannot read Vec<T: Bitsy> directly!".to_string())
+                .at_bit(reader.index()),
+        )
+    }
+
+    fn write_to<W: BitWriter>(&self, writer: &mut W) -> BitsyResult<()> {
+        for (index, value) in self.iter().enumerate() {
+            writer.write(value).prepend_index(index)?;
+        }
+        Ok(())
     }
 }

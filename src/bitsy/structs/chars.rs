@@ -67,8 +67,7 @@ impl<const N: usize> BitSized for BitsyChars<N> {
 #[cfg(test)]
 mod tests {
     use crate::bitsy::{
-        testutils::{assert_reads_to, compare_bitslices},
-        BitVecReader, BitVecWriter, MyBitVec,
+        compare_bitslices, testutils::assert_reads_to, BitVecReader, BitVecWriter, MyBitVec,
     };
 
     use super::*;

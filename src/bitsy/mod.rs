@@ -11,13 +11,14 @@ mod writer;
 
 use std::{
     any::type_name,
+    cmp::min,
     convert::{TryFrom, TryInto},
     fmt::Debug,
     rc::Rc,
 };
 
 use context::{ContextKey, ContextResetGuard, ContextValue};
-pub use huffman::HuffmanChars;
+pub use huffman::{HuffmanChar, HuffmanChars};
 pub use old::*;
 pub use reader::BitVecReader;
 pub use writer::BitVecWriter;
@@ -120,98 +121,15 @@ pub fn bitsy_to_bits(bitsy: &impl Bitsy, version: u32) -> MyBitVec {
     writer.into_bits()
 }
 
-#[cfg(test)]
-pub mod testutils {
-    use std::cmp::min;
+pub fn compare_bitslices(
+    expected: &MyBitSlice,
+    actual: &MyBitSlice,
+) -> Result<(), BitsliceCompareError> {
+    let first_difference = find_first_difference(expected, actual);
 
-    use super::*;
-
-    const DIFF_WINDOW: usize = 16;
-
-    fn find_first_difference(expected: &MyBitSlice, actual: &MyBitSlice) -> Option<usize> {
-        let mut index = 0;
-        while index < expected.len() && index < actual.len() {
-            if expected[index] != actual[index] {
-                return Some(index);
-            }
-            index += 1;
-        }
-        None
-    }
-
-    fn bit_at(bits: &MyBitSlice, index: usize) -> char {
-        if index < bits.len() {
-            if bits[index] {
-                '1'
-            } else {
-                '0'
-            }
-        } else {
-            '.'
-        }
-    }
-
-    fn as_bits(bits: &MyBitSlice, start: usize, end: usize) -> String {
-        let mut result = String::new();
-        for index in start..end {
-            result.push(bit_at(bits, index));
-        }
-        result
-    }
-
-    fn show_bitslice_around(bits: &MyBitSlice, index: usize) -> String {
-        let mut result = String::new();
-        if index > DIFF_WINDOW {
-            result.push_str(&format!(" ({} hidden bits) ... ", index - DIFF_WINDOW));
-        }
-
-        let window_start = if index > DIFF_WINDOW {
-            index - DIFF_WINDOW
-        } else {
-            0
-        };
-        result.push_str(&as_bits(bits, window_start, index));
-
-        result.push('[');
-        result.push(bit_at(bits, index));
-        result.push(']');
-
-        result.push_str(&as_bits(bits, index + 1, index + DIFF_WINDOW + 1));
-
-        if index + DIFF_WINDOW + 1 < bits.len() {
-            result.push_str(&format!(
-                " ... ({} hidden bits)",
-                bits.len() - index - DIFF_WINDOW
-            ));
-        }
-
-        result
-    }
-
-    pub struct BitsliceCompareError {
-        expected: String,
-        actual: String,
-        message: String,
-    }
-
-    impl Debug for BitsliceCompareError {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            writeln!(f, "Bitslices differ!: {}", self.message)?;
-            writeln!(f, "Expected: {}", self.expected)?;
-            writeln!(f, "Actual:   {}", self.actual)?;
-            Ok(())
-        }
-    }
-
-    pub fn compare_bitslices(
-        expected: &MyBitSlice,
-        actual: &MyBitSlice,
-    ) -> Result<(), BitsliceCompareError> {
-        let first_difference = find_first_difference(expected, actual);
-
-        if expected.len() != actual.len() {
-            let first = first_difference.unwrap_or(min(expected.len(), actual.len()));
-            Err(BitsliceCompareError {
+    if expected.len() != actual.len() {
+        let first = first_difference.unwrap_or(min(expected.len(), actual.len()));
+        Err(BitsliceCompareError {
                 expected:  show_bitslice_around(expected, first),
                 actual:    show_bitslice_around(actual, first),
                 message:               format!(
@@ -222,19 +140,102 @@ pub mod testutils {
                 actual.len() / 8,
                 first
             )})
-        } else if let Some(first_difference) = first_difference {
-            Err(BitsliceCompareError {
-                expected: show_bitslice_around(expected, first_difference),
-                actual: show_bitslice_around(actual, first_difference),
-                message: format!(
-                    "BitSlices differ! First difference at index {}",
-                    first_difference
-                ),
-            })
-        } else {
-            Ok(())
-        }
+    } else if let Some(first_difference) = first_difference {
+        Err(BitsliceCompareError {
+            expected: show_bitslice_around(expected, first_difference),
+            actual: show_bitslice_around(actual, first_difference),
+            message: format!(
+                "BitSlices differ! First difference at index {}",
+                first_difference
+            ),
+        })
+    } else {
+        Ok(())
     }
+}
+
+pub struct BitsliceCompareError {
+    expected: String,
+    actual: String,
+    message: String,
+}
+
+impl Debug for BitsliceCompareError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Bitslices differ!: {}", self.message)?;
+        writeln!(f, "Expected: {}", self.expected)?;
+        writeln!(f, "Actual:   {}", self.actual)?;
+        Ok(())
+    }
+}
+
+fn find_first_difference(expected: &MyBitSlice, actual: &MyBitSlice) -> Option<usize> {
+    let mut index = 0;
+    while index < expected.len() && index < actual.len() {
+        if expected[index] != actual[index] {
+            return Some(index);
+        }
+        index += 1;
+    }
+    None
+}
+
+fn bit_at(bits: &MyBitSlice, index: usize) -> char {
+    if index < bits.len() {
+        if bits[index] {
+            '1'
+        } else {
+            '0'
+        }
+    } else {
+        '.'
+    }
+}
+
+fn as_bits(bits: &MyBitSlice, start: usize, end: usize) -> String {
+    let mut result = String::new();
+    for index in start..end {
+        result.push(bit_at(bits, index));
+    }
+    result
+}
+
+const DIFF_WINDOW: usize = 16;
+
+fn show_bitslice_around(bits: &MyBitSlice, index: usize) -> String {
+    let mut result = String::new();
+    if index > DIFF_WINDOW {
+        result.push_str(&format!(" ({} hidden bits) ... ", index - DIFF_WINDOW));
+    }
+
+    let window_start = if index > DIFF_WINDOW {
+        index - DIFF_WINDOW
+    } else {
+        0
+    };
+    result.push_str(&as_bits(bits, window_start, index));
+
+    result.push('[');
+    result.push(bit_at(bits, index));
+    result.push(']');
+
+    result.push_str(&as_bits(bits, index + 1, index + DIFF_WINDOW + 1));
+
+    if index + DIFF_WINDOW + 1 < bits.len() {
+        result.push_str(&format!(
+            " ... ({} hidden bits)",
+            bits.len() - index - DIFF_WINDOW
+        ));
+    }
+
+    result
+}
+
+#[cfg(test)]
+pub mod testutils {
+    use std::cmp::min;
+
+    use super::*;
 
     pub fn random_bits(bit_count: usize) -> MyBitVec {
         let mut bits = MyBitVec::new();

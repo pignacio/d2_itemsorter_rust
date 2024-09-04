@@ -7,8 +7,8 @@ use crate::{
         structs::{BitsyBytes, BitsyChars, BitsyInt},
         BitReader, BitSized, BitWriter, Bitsy, MyBitVec,
     },
-    constants::{ITEM_HEADER, MERC_HEADER},
-    item::ItemList,
+    constants::{IRON_GOLEM_HEADER, ITEM_HEADER, MERC_HEADER},
+    item::{ItemList, NewItem},
 };
 
 const ATTRIBUTES_HEADER: [u8; 2] = [0x67, 0x66];
@@ -140,6 +140,7 @@ pub struct Player {
     items: ItemList,
     corpse_info: Corpse,
     mercenary_items: MercenaryItems,
+    golem_info: IronGolem,
 }
 
 impl Bitsy for Player {
@@ -176,6 +177,7 @@ impl Bitsy for Player {
             items,
             corpse_info,
             mercenary_items,
+            golem_info,
         );
         Ok(Self {
             header,
@@ -207,6 +209,7 @@ impl Bitsy for Player {
             items,
             corpse_info,
             mercenary_items,
+            golem_info,
         })
     }
 
@@ -241,6 +244,7 @@ impl Bitsy for Player {
             &self.skills,
             &self.items,
             &self.mercenary_items,
+            &self.golem_info,
         );
         Ok(())
     }
@@ -326,14 +330,45 @@ impl Bitsy for MercenaryItems {
     }
 }
 
+#[derive(Debug)]
+pub struct IronGolem {
+    has_iron_golem: u8,
+    golem_info: Option<NewItem>,
+}
+
+impl Bitsy for IronGolem {
+    fn parse<R: BitReader>(reader: &mut R) -> BitsyResult<Self> {
+        let header: [u8; 2] = reader.read()?;
+        if header != IRON_GOLEM_HEADER {
+            return Err(BitsyErrorKind::InvalidData(format!(
+                "Invalid iron golem header {:?} (expected {:?})",
+                header, IRON_GOLEM_HEADER
+            ))
+            .at_bit(reader.index() - header.bit_size()));
+        }
+
+        bitsy_read!(reader, has_iron_golem);
+        bitsy_cond_read!(reader, has_iron_golem != 0, golem_info);
+
+        Ok(Self {
+            has_iron_golem,
+            golem_info,
+        })
+    }
+
+    fn write_to<W: BitWriter>(&self, writer: &mut W) -> BitsyResult<()> {
+        writer.write(&IRON_GOLEM_HEADER)?;
+        bitsy_write!(writer, &self.has_iron_golem, &self.golem_info);
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::rc::Rc;
 
     use crate::{
-        bitsy::{
-            bitsy_to_bits, testutils::compare_bitslices, BitVecReader, BitVecWriter, HuffmanChars,
-        },
+        bitsy::{bitsy_to_bits, compare_bitslices, BitVecReader, BitVecWriter, HuffmanChars},
         item::info::{ItemDb, MapItemDb},
     };
 
@@ -362,7 +397,9 @@ mod tests {
     #[test]
     fn it_works() {
         let item_db: Rc<dyn ItemDb> = Rc::new(MapItemDb::from_data_dir("data/items"));
-        let bytes = std::fs::read("examples/LaCopperfield.d2s").unwrap();
+        let bytes = std::fs::read("examples/LaCope2.d2s").unwrap();
+
+        std::fs::write("examples/HoradricCubeAndNextItem.bin", &bytes[1020..1088]).unwrap();
         let bits = MyBitVec::from_vec(bytes);
 
         let mut reader = BitVecReader::with_item_db(bits.clone(), item_db);
