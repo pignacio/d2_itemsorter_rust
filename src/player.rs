@@ -143,10 +143,20 @@ pub struct Player {
     golem_info: IronGolem,
 }
 
+impl Player {
+    pub fn name(&self) -> String {
+        if self.version < 90 {
+            self.old_name.to_string()
+        } else {
+            self.new_name.to_string()
+        }
+    }
+}
+
 impl Bitsy for Player {
     fn parse<R: BitReader>(reader: &mut R) -> BitsyResult<Self> {
         bitsy_read!(reader, header, version);
-        let _version_guard = reader.set_context(&context::VERSION, version);
+        reader.set_context(&context::VERSION, version);
 
         bitsy_read!(
             reader,
