@@ -16,7 +16,7 @@ const ATTRIBUTE_ID_SIZE: usize = 9;
 type AttributeId = BitsyInt<u16, ATTRIBUTE_ID_SIZE>;
 const TERMINATOR: u16 = 0b111111111;
 const ATTRIBUTE_SIZES: [usize; 16] = [10, 10, 10, 10, 10, 8, 21, 21, 21, 21, 21, 21, 7, 32, 25, 25];
-const ATTRIBUTE_NAMES: [&str; 16] = [
+pub const ATTRIBUTE_NAMES: [&str; 16] = [
     "Strength",
     "Energy",
     "Dexterity",
@@ -38,6 +38,20 @@ const ATTRIBUTE_NAMES: [&str; 16] = [
 //#[derive(Debug)]
 pub struct Attributes {
     values: Vec<(AttributeId, u32)>,
+}
+
+impl Attributes {
+    pub fn len(&self) -> usize {
+        self.values.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.values.is_empty()
+    }
+
+    pub fn get(&self) -> &[(AttributeId, u32)] {
+        &self.values
+    }
 }
 
 impl std::fmt::Debug for Attributes {
@@ -135,11 +149,11 @@ pub struct Player {
     quests: BitsyBytes<298>,
     waypoints: BitsyBytes<80>,
     npcs: BitsyBytes<52>,
-    attributes: Attributes,
+    pub attributes: Attributes,
     skills: BitsyBytes<32>,
-    items: ItemList,
+    pub items: ItemList,
     corpse_info: Corpse,
-    mercenary_items: MercenaryItems,
+    pub mercenary_items: MercenaryItems,
     golem_info: IronGolem,
 }
 
