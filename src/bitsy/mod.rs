@@ -246,7 +246,7 @@ pub mod testutils {
     }
 
     pub fn assert_reads_to<T: Bitsy + Eq>(bits: MyBitVec, expected: T) {
-        let mut reader = BitVecReader::new(bits);
+        let mut reader = BitVecReader::dbless(bits);
         let actual = reader.read().unwrap();
         assert_eq!(expected, actual);
         assert!(reader.read_tail().unwrap().is_empty());

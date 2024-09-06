@@ -63,7 +63,7 @@ mod tests {
     use super::*;
     #[test]
     fn it_reads() {
-        let mut reader = BitVecReader::new(bits_from_str("010011").unwrap());
+        let mut reader = BitVecReader::dbless(bits_from_str("010011").unwrap());
         let mut bits: Bits<3>;
 
         bits = reader.read().unwrap();

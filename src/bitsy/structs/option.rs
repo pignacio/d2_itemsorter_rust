@@ -73,7 +73,7 @@ mod tests {
 
     #[test]
     fn it_reads_none() {
-        let mut reader = BitVecReader::new(bits_from_str("000101101").unwrap());
+        let mut reader = BitVecReader::dbless(bits_from_str("000101101").unwrap());
 
         let option: BitsyOption<u8> = reader.read().unwrap();
 
@@ -83,7 +83,7 @@ mod tests {
 
     #[test]
     fn it_reads_some() {
-        let mut reader = BitVecReader::new(bits_from_str("100101101").unwrap());
+        let mut reader = BitVecReader::dbless(bits_from_str("100101101").unwrap());
 
         let option: BitsyOption<u8> = reader.read().unwrap();
 

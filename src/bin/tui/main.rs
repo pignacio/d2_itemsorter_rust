@@ -6,6 +6,7 @@ use std::{
 use action::Action;
 use d2_itemsorter::{
     bitsy::{BitReader, BitVecReader, MyBitVec},
+    item::info::MapItemDb,
     player::Player,
 };
 use ratatui::{
@@ -15,7 +16,9 @@ use ratatui::{
         ExecutableCommand,
     },
     prelude::*,
+    widgets::{Clear, Paragraph},
 };
+use style::Styled;
 use window::{player::PlayerWindow, Window};
 
 mod action;
@@ -23,48 +26,15 @@ mod window;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-struct TerminalGuard<B: Backend> {
-    terminal: Terminal<B>,
-}
-
-impl<B: Backend> TerminalGuard<B> {
-    fn new<F: FnOnce() -> Result<Terminal<B>>>(factory: F) -> Result<Self> {
-        enable_raw_mode()?;
-        stdout().execute(EnterAlternateScreen)?;
-        Ok(Self {
-            terminal: factory()?,
-        })
-    }
-}
-
-impl<B: Backend> Drop for TerminalGuard<B> {
-    fn drop(&mut self) {
-        disable_raw_mode().unwrap();
-        stdout().execute(LeaveAlternateScreen).unwrap();
-    }
-}
-
-impl<B: Backend> Deref for TerminalGuard<B> {
-    type Target = Terminal<B>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.terminal
-    }
-}
-
-impl<B: Backend> DerefMut for TerminalGuard<B> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.terminal
-    }
-}
-
 fn main() -> Result<()> {
     let bytes = std::fs::read("examples/LaCopeFull.d2s")?;
-    let mut reader = BitVecReader::new(MyBitVec::from_vec(bytes));
+    let mut reader = BitVecReader::new(
+        MyBitVec::from_vec(bytes),
+        MapItemDb::from_data_dir("data/items"),
+    );
     let player = reader.read()?;
     {
-        let mut terminal =
-            TerminalGuard::new(|| Ok(Terminal::new(CrosstermBackend::new(stdout()))?))?;
+        let mut terminal = ratatui::init();
 
         let mut state = UiState::new(player);
 
@@ -115,8 +85,14 @@ impl UiState {
     }
 
     fn ui(&mut self, frame: &mut Frame) {
-        if let Some(w) = self.window_stack.last_mut() {
-            w.render(frame, frame.area())
+        frame.render_widget(Clear, frame.area());
+        //frame.render_widget(
+        //    Paragraph::new(format!("Frame: {}", frame.area()))
+        //        .style(Style::default().bg(Color::Red)),
+        //    Rect::new(0, 0, 50, 5), //.intersection(frame.area()),
+        //);
+        if let Some(window) = self.window_stack.last_mut() {
+            window.render(frame, frame.area())
         }
 
         //frame.render_widget(
@@ -144,15 +120,17 @@ impl UiState {
                 Some(action)
             };
 
-            residual_action.map(|event| match event {
-                Action::ProcessEvent(_) => {}
-                Action::PopWindowStack => {
-                    if !self.window_stack.is_empty() {
-                        self.window_stack.pop();
+            if let Some(action) = residual_action {
+                match action {
+                    Action::ProcessEvent(_) => {}
+                    Action::PopWindowStack => {
+                        if !self.window_stack.is_empty() {
+                            self.window_stack.pop();
+                        }
                     }
+                    Action::PushWindowStack(w) => self.window_stack.push(w),
                 }
-                Action::PushWindowStack(w) => self.window_stack.push(w),
-            });
+            }
         }
         Ok(())
     }

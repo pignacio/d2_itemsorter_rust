@@ -84,7 +84,7 @@ mod tests {
     #[test]
     fn it_reads() {
         let bits = MyBitVec::from_vec("hello".chars().map(|c| c as u8).collect());
-        let mut reader = BitVecReader::new(bits);
+        let mut reader = BitVecReader::dbless(bits);
 
         let chars: BitsyChars<4> = reader.read().unwrap();
 

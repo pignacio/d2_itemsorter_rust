@@ -1,3 +1,4 @@
+use std::sync::MutexGuard;
 use std::{rc::Rc, sync::Mutex};
 
 use d2_itemsorter::player::{Player, ATTRIBUTE_NAMES};
@@ -27,8 +28,12 @@ const OPTIONS: [Options; 3] = [Options::Stats, Options::Items, Options::Mercenar
 
 pub type PlayerMutex = Rc<Mutex<Player>>;
 
+pub fn force_lock(player: &PlayerMutex) -> MutexGuard<'_, Player> {
+    player.lock().unwrap_or_else(|err| err.into_inner())
+}
+
 pub struct PlayerWindow {
-    player: Player,
+    player: PlayerMutex,
     option_list_state: ListState,
 }
 
@@ -37,7 +42,7 @@ impl PlayerWindow {
         FramedWindow::new(
             &["Player"],
             Box::new(Self {
-                player,
+                player: Rc::new(Mutex::new(player)),
                 option_list_state: ListState::default().with_selected(Some(0)),
             }),
         )
@@ -46,22 +51,26 @@ impl PlayerWindow {
 
 impl Window for PlayerWindow {
     fn render(&mut self, frame: &mut Frame, area: Rect) {
+        let player = force_lock(&self.player);
+
         let areas = Layout::vertical(vec![
             Constraint::Length(3),
-            Constraint::Length(self.player.attributes.len() as u16 + 1),
+            Constraint::Length(player.attributes.len() as u16 + 1),
             Constraint::Min(3),
         ])
         .spacing(1)
         .split(area);
 
+        let name = format!("{}!", player.name());
+        let mut name_area = areas[0];
+        name_area.width = name.len() as u16 + 2;
         frame.render_widget(
-            Paragraph::new(self.player.name())
+            Paragraph::new(format!("{}!", player.name()))
                 .block(Block::default().borders(Borders::ALL).title("Name")),
-            areas[0],
+            name_area,
         );
 
-        let mut attributes: Vec<String> = self
-            .player
+        let mut attributes: Vec<String> = player
             .attributes
             .get()
             .iter()
@@ -116,7 +125,9 @@ impl Window for PlayerWindow {
                             let window: Option<Box<dyn Window>> =
                                 match self.option_list_state.selected() {
                                     Some(0) => Some(Box::new(StatsWindow::new_framed())),
-                                    Some(1) => Some(Box::new(ItemsWindow::new_framed())),
+                                    Some(1) => {
+                                        Some(Box::new(ItemsWindow::new_framed(self.player.clone())))
+                                    }
                                     Some(2) => Some(Box::new(MercenaryWindow::new_framed())),
                                     _ => None,
                                 };

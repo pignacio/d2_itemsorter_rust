@@ -421,13 +421,13 @@ mod tests {
     use super::*;
     #[test]
     fn it_works() {
-        let item_db: Rc<dyn ItemDb> = Rc::new(MapItemDb::from_data_dir("data/items"));
+        let item_db = MapItemDb::from_data_dir("data/items");
         let bytes = std::fs::read("examples/LaCope2.d2s").unwrap();
 
         std::fs::write("examples/HoradricCubeAndNextItem.bin", &bytes[1020..1088]).unwrap();
         let bits = MyBitVec::from_vec(bytes);
 
-        let mut reader = BitVecReader::with_item_db(bits.clone(), item_db);
+        let mut reader = BitVecReader::new(bits.clone(), item_db);
 
         let chars = HuffmanChars::<4>::new(['m', 'f', 'd', ' ']);
         let charbits = bitsy_to_bits(&chars, 0);

@@ -194,7 +194,7 @@ mod tests {
     #[test]
     fn it_works() {
         let bitvec = MyBitVec::from_vec(vec![0xB1, 0xF2, 0x18, 0x3A]);
-        let mut reader = BitVecReader::new(bitvec);
+        let mut reader = BitVecReader::dbless(bitvec);
 
         reader.read_bits(3).unwrap();
         let chars = reader.read::<HuffmanChars<4>>().unwrap();
