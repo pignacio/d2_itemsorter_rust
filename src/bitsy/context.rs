@@ -37,6 +37,7 @@ lazy_static::lazy_static! {
     pub static ref HAS_RUNEWORD: ContextKey<bool> = ContextKey::new("has_runeword");
     pub static ref ITEM_INFO: ContextKey<ItemInfo> = ContextKey::new("item_info");
     pub static ref QUALITY_ID: ContextKey<QualityId> = ContextKey::new("quality_id");
+    pub static ref CURRENT_ITEM_IS_INSIDE_SOCKET: ContextKey<bool> = ContextKey::new("current_item_is_inside_socket");
 }
 
 #[derive(Debug)]

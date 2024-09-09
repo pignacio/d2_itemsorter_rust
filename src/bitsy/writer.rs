@@ -1,4 +1,5 @@
 use super::{
+    context::ContextMap,
     error::{BitsyError, BitsyErrorKind},
     result::BitsyResult,
     BitWriter, MyBitVec,
@@ -6,15 +7,18 @@ use super::{
 
 pub struct BitVecWriter {
     bits: MyBitVec,
-    version: u32,
+    context: ContextMap,
 }
 
 impl BitVecWriter {
     pub fn new(version: u32) -> Self {
-        Self {
+        let mut writer = Self {
             bits: MyBitVec::new(),
-            version,
-        }
+            context: ContextMap::new(),
+        };
+
+        writer.set_context(&super::context::VERSION, version);
+        writer
     }
 
     pub fn into_bits(self) -> MyBitVec {
@@ -27,8 +31,28 @@ impl BitWriter for BitVecWriter {
         self.bits.len()
     }
 
-    fn version(&self) -> Option<u32> {
-        Some(self.version)
+    fn queue_context_reset(&self) -> super::context::ContextResetGuard {
+        self.context.context_reset()
+    }
+
+    fn set_context<T: super::context::ContextValue>(
+        &mut self,
+        key: &super::context::ContextKey<T>,
+        value: T,
+    ) {
+        self.context.set_context(key, value);
+    }
+
+    fn get_context<T: super::context::ContextValue>(
+        &self,
+        key: &super::context::ContextKey<T>,
+    ) -> BitsyResult<T> {
+        self.context.get_context(key).ok_or_else(|| {
+            BitsyError::new(
+                BitsyErrorKind::MissingContext(key.as_str().to_string()),
+                self.bits.len(),
+            )
+        })
     }
 
     fn write_int<T: Into<u32>>(&mut self, value: T, bit_count: usize) -> BitsyResult<()> {

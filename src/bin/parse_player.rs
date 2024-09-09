@@ -7,7 +7,7 @@ fn main() {
     let path = std::env::args().nth(1).expect("Missing player path");
     let bytes = std::fs::read(path).unwrap();
     let bits = MyBitVec::from_vec(bytes);
-    let mut reader = BitVecReader::new(bits.clone());
+    let mut reader = BitVecReader::dbless(bits.clone());
     let player: Player = reader.read().unwrap();
     println!("Finished reading player @ {}", reader.index());
     reader.report_next_bytes(32);

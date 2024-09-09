@@ -559,6 +559,12 @@ impl Bitsy for NewItem {
         let location: BitsyInt<u8, 3> = location;
         let simple: bool = simple;
         let item_type: HuffmanChars<4> = item_type;
+        println!(
+            "Started item '{}' (simple:{simple}) @bit {} (byte {})",
+            item_type.as_string(),
+            start_bit,
+            start_bit / 8,
+        );
         let item_info = reader.item_db().get_info(&item_type.as_string());
         reader.set_context(&context::HAS_SOCKETS, socketed);
         reader.set_context(&context::ITEM_INFO, item_info.clone());
@@ -575,17 +581,36 @@ impl Bitsy for NewItem {
 
         reader.read_padding()?;
 
+        let offset = reader.index() - start_bit;
         let has_extra_padding = if reader.peek::<u8>()? == 0 {
+            if offset != 72 {
+                return Err(BitsyErrorKind::InvalidData(format!(
+                    "Found extra padding at offset != 72 for item type '{}'",
+                    item_type.as_string()
+                ))
+                .at_bit(reader.index()));
+            }
             let _: u8 = reader.read()?;
             true
         } else {
+            let is_inserted = reader
+                .get_context(&context::CURRENT_ITEM_IS_INSIDE_SOCKET)
+                .unwrap_or(false);
+            if offset == 72 && !is_inserted {
+                //println!(
+                //    "Found item of size 72 bits without extra padding for item type '{}'",
+                //    item_type.as_string()
+                //);
+                return Err(BitsyErrorKind::InvalidData(format!(
+                    "Found non-inserted item of size 72 bits without extra padding for item type '{}'",
+                    item_type.as_string()
+                ))
+                .at_bit(reader.index()));
+            }
             false
         };
 
-        if item_type.as_string() == "rvl " || item_type.as_string() == "box " {
-            reader.report_next_bytes(30);
-        }
-
+        reader.set_context(&context::CURRENT_ITEM_IS_INSIDE_SOCKET, true);
         let mut socketed_items = Vec::new();
         for index in 0..gem_count as usize {
             let item = reader
@@ -622,9 +647,9 @@ impl Bitsy for NewItem {
     }
 
     fn write_to<W: BitWriter>(&self, writer: &mut W) -> BitsyResult<()> {
-        let version = writer
-            .version()
-            .ok_or_else(|| BitsyError::new(BitsyErrorKind::MissingVersion, 0))?;
+        let _reset = writer.queue_context_reset();
+        let start_bit = writer.index();
+        let version = writer.get_context(&context::VERSION)?;
         if version < 97 {
             writer.write(&ITEM_HEADER)?;
         }
@@ -652,9 +677,16 @@ impl Bitsy for NewItem {
         );
 
         writer.write_padding()?;
-        if self.has_extra_padding {
+        let offset = writer.index() - start_bit;
+        let is_inserted = writer
+            .get_context(&context::CURRENT_ITEM_IS_INSIDE_SOCKET)
+            .unwrap_or(false);
+        if !is_inserted && offset == 72 {
+            // Write extra padding
             writer.write(&0u8)?;
         }
+
+        writer.set_context(&context::CURRENT_ITEM_IS_INSIDE_SOCKET, true);
         bitsy_write!(writer, &self.socketed_items);
         Ok(())
     }

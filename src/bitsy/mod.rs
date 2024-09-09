@@ -95,7 +95,10 @@ pub trait BitReader: Sized {
 
 pub trait BitWriter: Sized {
     fn index(&self) -> usize;
-    fn version(&self) -> Option<u32>;
+
+    fn queue_context_reset(&self) -> ContextResetGuard;
+    fn get_context<T: ContextValue>(&self, key: &ContextKey<T>) -> BitsyResult<T>;
+    fn set_context<T: ContextValue>(&mut self, key: &ContextKey<T>, value: T);
 
     fn write_int<T: Into<u32>>(&mut self, value: T, bit_count: usize) -> BitsyResult<()>;
     fn write_bits(&mut self, value: &MyBitVec) -> BitsyResult<()>;
