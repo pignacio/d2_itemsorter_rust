@@ -1,9 +1,10 @@
 use std::{
     fmt::{Debug, Display, Formatter},
-    ops::Deref,
+    ops::{Deref, DerefMut},
 };
 
 use bitvec::prelude::*;
+use properties::{PropertyDb, PropertyDef, PropertyValues};
 
 use crate::{
     bitsy::{
@@ -481,26 +482,26 @@ const ITEM_HEADER: [u8; 2] = [0x4A, 0x4D];
 
 #[derive(Debug)]
 pub struct NewItem {
-    unknown1: Bits<4>,
-    identified: bool,
-    unknown2: Bits<6>,
-    socketed: bool,
-    unknown3: Bits<9>,
-    simple: bool,
-    ethereal: bool,
-    unknown4: Bits<1>,
-    inscribed: bool,
-    unknown5: Bits<1>,
-    has_runeword: bool,
-    unknown6: Bits<15>,
+    pub unknown1: Bits<4>,
+    pub identified: bool,
+    pub unknown2: Bits<6>,
+    pub socketed: bool,
+    pub unknown3: Bits<9>,
+    pub simple: bool,
+    pub ethereal: bool,
+    pub unknown4: Bits<1>,
+    pub inscribed: bool,
+    pub unknown5: Bits<1>,
+    pub has_runeword: bool,
+    pub unknown6: Bits<15>,
     pub x: BitsyInt<u8, 4>,
     pub y: BitsyInt<u8, 4>,
     pub location: BitsyInt<u8, 3>,
     pub item_type: HuffmanChars<4>,
     pub item_info: ItemInfo,
-    extended_info: Option<NewExtendedInfo>,
-    item_properties: Option<NewPropertyList>,
-    runeword_properties: Option<NewPropertyList>,
+    pub extended_info: Option<NewExtendedInfo>,
+    pub item_properties: Option<NewPropertyList>,
+    pub runeword_properties: Option<NewPropertyList>,
     has_extra_padding: bool,
     socketed_items: Vec<NewItem>,
     //tail: MyBitVec,
@@ -581,6 +582,10 @@ impl Bitsy for NewItem {
 
         reader.read_padding()?;
 
+        if item_type.as_string() == "101 " {
+            println!("Found stacked el rune. einfo:{extended_info:?}");
+        }
+
         let offset = reader.index() - start_bit;
         let has_extra_padding = if reader.peek::<u8>()? == 0 {
             if offset != 72 {
@@ -647,6 +652,11 @@ impl Bitsy for NewItem {
     }
 
     fn write_to<W: BitWriter>(&self, writer: &mut W) -> BitsyResult<()> {
+        println!(
+            "Starting write of item '{}' at bit {}",
+            self.item_type.as_string(),
+            writer.index()
+        );
         let _reset = writer.queue_context_reset();
         let start_bit = writer.index();
         let version = writer.get_context(&context::VERSION)?;
@@ -677,12 +687,12 @@ impl Bitsy for NewItem {
         );
 
         writer.write_padding()?;
-        let offset = writer.index() - start_bit;
-        let is_inserted = writer
-            .get_context(&context::CURRENT_ITEM_IS_INSIDE_SOCKET)
-            .unwrap_or(false);
-        if !is_inserted && offset == 72 {
-            // Write extra padding
+        //let offset = writer.index() - start_bit;
+        //let is_inserted = writer
+        //    .get_context(&context::CURRENT_ITEM_IS_INSIDE_SOCKET)
+        //    .unwrap_or(false);
+        //if !is_inserted && offset == 72 {
+        if self.has_extra_padding {
             writer.write(&0u8)?;
         }
 
@@ -702,6 +712,12 @@ impl Deref for ItemList {
 
     fn deref(&self) -> &Self::Target {
         &self.items
+    }
+}
+
+impl DerefMut for ItemList {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.items
     }
 }
 
@@ -739,22 +755,22 @@ impl Bitsy for ItemList {
 }
 
 #[derive(Debug)]
-struct NewExtendedInfo {
-    gem_count: BitsyInt<u8, 3>,
-    guid: BitsyBytes<4>,
-    drop_level: BitsyInt<u8, 7>,
-    gfx: BitsyOption<BitsyInt<u8, 3>>,
-    class_info: BitsyOption<Bits<11>>,
-    quality: ItemQuality,
-    runeword: Option<Bits<16>>,
-    //realm_data_present: bool,
-    //realm_data_present: BitsyOption<Bits<128>>,
-    defense: Option<BitsyInt<u16, 11>>,
-    max_durability: Option<BitsyInt<u16, 9>>,
-    current_durability: Option<BitsyInt<u16, 9>>,
-    quantity: Option<BitsyInt<u16, 9>>,
-    set_item_mods: Option<Bits<5>>,
-    socket_count: Option<BitsyInt<u8, 4>>,
+pub struct NewExtendedInfo {
+    pub gem_count: BitsyInt<u8, 3>,
+    pub guid: BitsyBytes<4>,
+    pub drop_level: BitsyInt<u8, 7>,
+    pub gfx: BitsyOption<BitsyInt<u8, 3>>,
+    pub class_info: BitsyOption<Bits<11>>,
+    pub quality: ItemQuality,
+    pub runeword: Option<Bits<16>>,
+    pub realm_data_present: bool,
+    //pub realm_data_present: BitsyOption<Bits<128>>,
+    pub defense: Option<BitsyInt<u16, 11>>,
+    pub max_durability: Option<BitsyInt<u16, 9>>,
+    pub current_durability: Option<BitsyInt<u16, 9>>,
+    pub quantity: Option<BitsyInt<u16, 9>>,
+    pub set_item_mods: Option<Bits<5>>,
+    pub socket_count: Option<BitsyInt<u8, 4>>,
 }
 
 impl Bitsy for NewExtendedInfo {
@@ -770,7 +786,7 @@ impl Bitsy for NewExtendedInfo {
             .map(|_| reader.read().prepend_path("runeword"))
             .transpose()?;
 
-        //bitsy_read!(reader, realm_data_present);
+        bitsy_read!(reader, realm_data_present);
         let item_info = reader.get_context(&context::ITEM_INFO)?;
 
         bitsy_cond_read!(reader, item_info.has_defense, defense);
@@ -804,7 +820,7 @@ impl Bitsy for NewExtendedInfo {
             class_info,
             quality,
             runeword,
-            //realm_data_present,
+            realm_data_present,
             defense,
             max_durability,
             current_durability,
@@ -823,6 +839,7 @@ impl Bitsy for NewExtendedInfo {
             &self.class_info,
             &self.quality,
             &self.runeword,
+            &self.realm_data_present,
             &self.defense,
             &self.max_durability,
             &self.current_durability,
@@ -838,19 +855,57 @@ lazy_static::lazy_static! {
     pub static ref PROPERTY_TERMINATOR: MyBitVec = bits_from_str("111111111").unwrap();
 }
 
-struct NewPropertyList {
-    tail: MyBitVec,
+#[derive(Debug)]
+pub struct Property {
+    pub definition: PropertyDef,
+    pub values: PropertyValues,
+}
+
+impl Display for Property {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Prop: {}({})",
+            self.definition.text,
+            self.values
+                .iter()
+                .zip(self.definition.values.iter())
+                .map(|(v, d)| format!("{}", *v as i32 - d.offset as i32))
+                .collect::<Vec<String>>()
+                .join(", ")
+        )
+    }
+}
+
+pub struct NewPropertyList {
+    pub properties: Vec<Property>,
+    pub tail: MyBitVec,
 }
 
 impl NewPropertyList {
-    fn first_unknown_id(&self) -> Option<String> {
+    pub fn first_unknown_id(&self) -> Option<String> {
         if self.tail.is_empty() {
-            return None;
+            None
         } else if self.tail.len() < 9 {
             return Some("TOO SHORT!!".to_string());
         } else {
             return Some(parse_int(&self.tail[..9]).unwrap().to_string());
         }
+    }
+
+    pub fn read_property<R: BitReader>(reader: &mut R) -> BitsyResult<Option<Property>> {
+        let property_id: BitsyInt<u16, 9> = reader.peek()?;
+        let Some(definition) = reader.property_db().get_definition(property_id.value()) else {
+            return Ok(None);
+        };
+        // Consume the property id
+        reader.read_bits(9)?;
+        let mut values: PropertyValues = PropertyValues::default();
+        for (index, value_def) in definition.values.iter().enumerate() {
+            values[index] = reader.read_int(value_def.size).prepend_index(index)?;
+        }
+
+        Ok(Some(Property { definition, values }))
     }
 }
 
@@ -865,12 +920,35 @@ impl Debug for NewPropertyList {
 
 impl Bitsy for NewPropertyList {
     fn parse<R: BitReader>(reader: &mut R) -> BitsyResult<Self> {
-        let tail = reader.read_property_tail().prepend_path("tail")?;
+        let mut properties = vec![];
+        println!("Next terminators:");
+        reader.report_search(&bits_from_str("111111111").unwrap());
 
-        Ok(NewPropertyList { tail })
+        loop {
+            let Some(property) = Self::read_property(reader).prepend_index(properties.len())?
+            else {
+                break;
+            };
+            println!("Found property {} at index {}", property, reader.index());
+            properties.push(property);
+        }
+        let tail = reader.read_property_tail().prepend_path("tail")?;
+        println!(
+            "Property list finished at {}. Tail: {}",
+            reader.index(),
+            tail
+        );
+
+        Ok(NewPropertyList { properties, tail })
     }
 
     fn write_to<W: BitWriter>(&self, writer: &mut W) -> BitsyResult<()> {
+        for prop in &self.properties {
+            writer.write_int(prop.definition.id, 9)?;
+            for (value, value_def) in prop.values.iter().zip(prop.definition.values.iter()) {
+                writer.write_int(*value, value_def.size)?;
+            }
+        }
         writer.write_bits(&self.tail)?;
         writer.write_bits(&PROPERTY_TERMINATOR)?;
         Ok(())

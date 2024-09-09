@@ -34,9 +34,9 @@ impl BitsyErrorKind {
 }
 
 pub struct BitsyError {
-    kind: BitsyErrorKind,
-    bit: usize,
-    path: Vec<PathSegment>,
+    pub kind: BitsyErrorKind,
+    pub bit: usize,
+    pub path: Vec<PathSegment>,
 }
 
 impl BitsyError {

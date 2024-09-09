@@ -1,3 +1,5 @@
+use std::io::Read;
+
 use crate::{
     bitsy::{
         context,
@@ -128,7 +130,7 @@ pub struct Player {
     header: BitsyBytes<4>,
     pub version: u32,
     file_size: u32,
-    checksum: u32,
+    pub checksum: u32,
     active_weapon: u32,
     old_name: BitsyChars<16>,
     status: u8,
@@ -388,9 +390,29 @@ impl Bitsy for IronGolem {
     }
 }
 
+pub fn calculate_checksum(bytes: &MyBitVec) -> u32 {
+    let mut crc: u32 = 0;
+    for (index, byte) in bytes.bytes().enumerate() {
+        crc = crc.rotate_left(1);
+        if !(12..=16).contains(&index) {
+            crc += byte.unwrap() as u32;
+        }
+    }
+    crc
+    //for byte in bits_to_str(pre_encode):
+    //    crc *= 2
+    //    if crc > _CRC_SIZE:
+    //        crc -= _CRC_SIZE
+    //        crc += 1
+    //    crc += ord(byte)
+    //    crc %= _CRC_SIZE
+}
+
 #[cfg(test)]
 mod tests {
     use std::rc::Rc;
+
+    use bitvec::field::BitField;
 
     use crate::{
         bitsy::{bitsy_to_bits, compare_bitslices, BitVecReader, BitVecWriter, HuffmanChars},
@@ -443,7 +465,11 @@ mod tests {
         writer.write(&player).unwrap();
         writer.write_bits(&tail).unwrap();
 
-        let new_bits = writer.into_bits();
+        let mut new_bits = writer.into_bits();
+        let new_checksum = calculate_checksum(&new_bits);
+        println!("Original checksum: {}", player.checksum);
+        println!("New checksum: {}", new_checksum);
+        new_bits[96..128].store(new_checksum);
 
         compare_bitslices(&bits, &new_bits).unwrap();
     }

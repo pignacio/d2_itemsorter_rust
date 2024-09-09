@@ -54,7 +54,7 @@ pub trait BitReader: Sized {
     fn set_context<T: ContextValue>(&mut self, key: &ContextKey<T>, value: T);
 
     fn item_db(&self) -> Rc<dyn ItemDb>;
-    fn property_db(&self) -> impl PropertyDb;
+    fn property_db(&self) -> Rc<dyn PropertyDb>;
 
     fn read_int<T: TryFrom<u32>>(&mut self, bit_count: usize) -> BitsyResult<T>;
     fn read_bits(&mut self, bit_count: usize) -> BitsyResult<MyBitVec>;

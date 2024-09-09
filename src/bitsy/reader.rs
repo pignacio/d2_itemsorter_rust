@@ -21,6 +21,7 @@ pub struct BitVecReader {
     index: usize,
     context: ContextMap,
     item_db: Rc<dyn ItemDb>,
+    property_db: Rc<dyn PropertyDb>,
 }
 
 fn int_to_printable_char(int: u32) -> char {
@@ -37,6 +38,7 @@ impl BitVecReader {
             index: 0,
             context: ContextMap::new(),
             item_db: Rc::new(MapItemDb::new()),
+            property_db: Rc::new(MapPropertyDb::empty()),
         }
     }
 
@@ -46,6 +48,7 @@ impl BitVecReader {
             index: 0,
             context: ContextMap::new(),
             item_db: std::rc::Rc::new(item_db),
+            property_db: std::rc::Rc::new(MapPropertyDb::new()),
         }
     }
 
@@ -77,8 +80,8 @@ impl BitReader for BitVecReader {
         self.item_db.clone()
     }
 
-    fn property_db(&self) -> impl PropertyDb {
-        MapPropertyDb::new()
+    fn property_db(&self) -> Rc<dyn PropertyDb> {
+        self.property_db.clone()
     }
 
     fn read_int<T: TryFrom<u32>>(&mut self, bit_count: usize) -> BitsyResult<T> {
@@ -91,17 +94,10 @@ impl BitReader for BitVecReader {
             return Err(self.error(BitsyErrorKind::EndOfData));
         }
 
-        let mut res: u32 = 0;
-        let mut multiplier = 1;
+        let parsed = parse_int(&self.bits[self.index..self.index + bit_count])
+            .map_err(|msg| self.error(BitsyErrorKind::InvalidData(msg)))?;
 
-        for index in 0..bit_count {
-            res += self.bits[self.index + index] as u32 * multiplier;
-            if index < 31 {
-                multiplier *= 2;
-            }
-        }
-
-        let result = T::try_from(res).map_err(|_| {
+        let result = T::try_from(parsed).map_err(|_| {
             self.error(BitsyErrorKind::InvalidData(format!(
                 "Could not fit int of {} bits in {}",
                 bit_count,
