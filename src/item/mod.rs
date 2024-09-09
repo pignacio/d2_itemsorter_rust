@@ -1,4 +1,7 @@
-use std::fmt::{Debug, Display, Formatter};
+use std::{
+    fmt::{Debug, Display, Formatter},
+    ops::Deref,
+};
 
 use bitvec::prelude::*;
 
@@ -490,11 +493,11 @@ pub struct NewItem {
     unknown5: Bits<1>,
     has_runeword: bool,
     unknown6: Bits<15>,
-    x: BitsyInt<u8, 4>,
-    y: BitsyInt<u8, 4>,
-    location: BitsyInt<u8, 3>,
-    item_type: HuffmanChars<4>,
-    item_info: ItemInfo,
+    pub x: BitsyInt<u8, 4>,
+    pub y: BitsyInt<u8, 4>,
+    pub location: BitsyInt<u8, 3>,
+    pub item_type: HuffmanChars<4>,
+    pub item_info: ItemInfo,
     extended_info: Option<NewExtendedInfo>,
     item_properties: Option<NewPropertyList>,
     runeword_properties: Option<NewPropertyList>,
@@ -660,6 +663,14 @@ impl Bitsy for NewItem {
 #[derive(Debug)]
 pub struct ItemList {
     items: Vec<NewItem>,
+}
+
+impl Deref for ItemList {
+    type Target = Vec<NewItem>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.items
+    }
 }
 
 impl Bitsy for ItemList {
@@ -844,7 +855,7 @@ mod tests {
     fn parse_item() {
         let bytes = std::fs::read("examples/HoradricCubeAndNextItem.bin").unwrap();
         let bits = MyBitVec::from_vec(bytes);
-        let mut reader = BitVecReader::new(bits.clone());
+        let mut reader = BitVecReader::dbless(bits.clone());
         reader.set_context(&context::VERSION, 99);
         let item: NewItem = reader.read().unwrap();
         println!("Parsed item: {:#?}", item);

@@ -79,7 +79,7 @@ mod tests {
     #[test]
     fn it_reads_aligned_bytes() {
         let original = [rand::random::<u8>(); 16].to_vec();
-        let mut reader = BitVecReader::new(MyBitVec::from_vec(original.clone()));
+        let mut reader = BitVecReader::dbless(MyBitVec::from_vec(original.clone()));
 
         let bytes: BitsyBytes<16> = reader.read().unwrap();
 
@@ -92,7 +92,7 @@ mod tests {
         let original = [rand::random::<u8>(); 16].to_vec();
         let mut bit_vec = bits("010");
         bit_vec.extend_from_raw_slice(&original);
-        let mut reader = BitVecReader::new(bit_vec);
+        let mut reader = BitVecReader::dbless(bit_vec);
 
         reader.read_bits(3).unwrap();
 

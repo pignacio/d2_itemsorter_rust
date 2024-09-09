@@ -31,7 +31,7 @@ fn int_to_printable_char(int: u32) -> char {
 }
 
 impl BitVecReader {
-    pub fn new(bits: MyBitVec) -> Self {
+    pub fn dbless(bits: MyBitVec) -> Self {
         Self {
             bits,
             index: 0,
@@ -40,12 +40,12 @@ impl BitVecReader {
         }
     }
 
-    pub fn with_item_db(bits: MyBitVec, item_db: Rc<dyn ItemDb>) -> Self {
+    pub fn new<I: ItemDb + 'static>(bits: MyBitVec, item_db: I) -> Self {
         Self {
             bits,
             index: 0,
             context: ContextMap::new(),
-            item_db,
+            item_db: std::rc::Rc::new(item_db),
         }
     }
 

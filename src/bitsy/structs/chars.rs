@@ -10,6 +10,15 @@ pub struct BitsyChars<const N: usize> {
 }
 
 impl<const N: usize> BitsyChars<N> {
+    pub fn to_string(&self) -> String {
+        self.bytes
+            .iter()
+            .map(|byte| *byte as char)
+            .collect::<String>()
+    }
+}
+
+impl<const N: usize> BitsyChars<N> {
     pub fn new<S: AsRef<str>>(string: S) -> BitsyResult<Self> {
         let chars = string.as_ref().chars().collect::<Vec<char>>();
         if chars.len() != N {
@@ -75,7 +84,7 @@ mod tests {
     #[test]
     fn it_reads() {
         let bits = MyBitVec::from_vec("hello".chars().map(|c| c as u8).collect());
-        let mut reader = BitVecReader::new(bits);
+        let mut reader = BitVecReader::dbless(bits);
 
         let chars: BitsyChars<4> = reader.read().unwrap();
 

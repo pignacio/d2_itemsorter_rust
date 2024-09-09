@@ -66,7 +66,6 @@ impl<T: BitsyIntTarget, const N: usize> BitSized for BitsyInt<T, N> {
 mod tests {
     use crate::bitsy::{
         bits_from_str, compare_bitslices, testutils::random_bits, BitVecReader, BitVecWriter,
-        MyBitVec,
     };
 
     use super::*;
@@ -74,7 +73,7 @@ mod tests {
     #[test]
     fn it_reads() {
         let bits = bits_from_str("00101110").unwrap();
-        let mut reader = BitVecReader::new(bits);
+        let mut reader = BitVecReader::dbless(bits);
 
         let int: BitsyInt<u8, 6> = reader.read().unwrap();
 
@@ -95,7 +94,7 @@ mod tests {
     fn random_rountrips() {
         for _ in 0..100 {
             let bits = random_bits(6);
-            let mut reader = BitVecReader::new(bits.clone());
+            let mut reader = BitVecReader::dbless(bits.clone());
             let int: BitsyInt<u8, 6> = reader.read().unwrap();
             let mut writer = BitVecWriter::new(0);
             writer.write(&int).unwrap();

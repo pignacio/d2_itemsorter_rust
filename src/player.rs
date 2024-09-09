@@ -16,7 +16,7 @@ const ATTRIBUTE_ID_SIZE: usize = 9;
 type AttributeId = BitsyInt<u16, ATTRIBUTE_ID_SIZE>;
 const TERMINATOR: u16 = 0b111111111;
 const ATTRIBUTE_SIZES: [usize; 16] = [10, 10, 10, 10, 10, 8, 21, 21, 21, 21, 21, 21, 7, 32, 25, 25];
-const ATTRIBUTE_NAMES: [&str; 16] = [
+pub const ATTRIBUTE_NAMES: [&str; 16] = [
     "Strength",
     "Energy",
     "Dexterity",
@@ -38,6 +38,20 @@ const ATTRIBUTE_NAMES: [&str; 16] = [
 //#[derive(Debug)]
 pub struct Attributes {
     values: Vec<(AttributeId, u32)>,
+}
+
+impl Attributes {
+    pub fn len(&self) -> usize {
+        self.values.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.values.is_empty()
+    }
+
+    pub fn get(&self) -> &[(AttributeId, u32)] {
+        &self.values
+    }
 }
 
 impl std::fmt::Debug for Attributes {
@@ -135,18 +149,28 @@ pub struct Player {
     quests: BitsyBytes<298>,
     waypoints: BitsyBytes<80>,
     npcs: BitsyBytes<52>,
-    attributes: Attributes,
+    pub attributes: Attributes,
     skills: BitsyBytes<32>,
-    items: ItemList,
+    pub items: ItemList,
     corpse_info: Corpse,
-    mercenary_items: MercenaryItems,
+    pub mercenary_items: MercenaryItems,
     golem_info: IronGolem,
+}
+
+impl Player {
+    pub fn name(&self) -> String {
+        if self.version < 90 {
+            self.old_name.to_string()
+        } else {
+            self.new_name.to_string()
+        }
+    }
 }
 
 impl Bitsy for Player {
     fn parse<R: BitReader>(reader: &mut R) -> BitsyResult<Self> {
         bitsy_read!(reader, header, version);
-        let _version_guard = reader.set_context(&context::VERSION, version);
+        reader.set_context(&context::VERSION, version);
 
         bitsy_read!(
             reader,
@@ -397,13 +421,13 @@ mod tests {
     use super::*;
     #[test]
     fn it_works() {
-        let item_db: Rc<dyn ItemDb> = Rc::new(MapItemDb::from_data_dir("data/items"));
+        let item_db = MapItemDb::from_data_dir("data/items");
         let bytes = std::fs::read("examples/LaCope2.d2s").unwrap();
 
         std::fs::write("examples/HoradricCubeAndNextItem.bin", &bytes[1020..1088]).unwrap();
         let bits = MyBitVec::from_vec(bytes);
 
-        let mut reader = BitVecReader::with_item_db(bits.clone(), item_db);
+        let mut reader = BitVecReader::new(bits.clone(), item_db);
 
         let chars = HuffmanChars::<4>::new(['m', 'f', 'd', ' ']);
         let charbits = bitsy_to_bits(&chars, 0);
