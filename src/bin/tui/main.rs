@@ -1,7 +1,4 @@
-use std::{
-    io::{self, stdout},
-    ops::{Deref, DerefMut},
-};
+use std::io;
 
 use action::Action;
 use d2_itemsorter::{
@@ -9,19 +6,11 @@ use d2_itemsorter::{
     item::info::MapItemDb,
     player::Player,
 };
-use ratatui::{
-    crossterm::{
-        event,
-        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-        ExecutableCommand,
-    },
-    prelude::*,
-    widgets::{Clear, Paragraph},
-};
-use style::Styled;
+use ratatui::{crossterm::event, prelude::*, widgets::Clear};
 use window::{player::PlayerWindow, Window};
 
 mod action;
+mod render;
 mod window;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -71,10 +60,6 @@ fn breadcrumbs(path: Vec<Span<'_>>) -> Line<'_> {
     // Pop the last >
     spans.pop();
     Line::default().spans(spans)
-    //path.iter()
-    //    .map(|crumb| format!(" {crumb} "))
-    //    .collect::<Vec<String>>()
-    //    .join(">")
 }
 
 impl UiState {
@@ -86,26 +71,10 @@ impl UiState {
 
     fn ui(&mut self, frame: &mut Frame) {
         frame.render_widget(Clear, frame.area());
-        //frame.render_widget(
-        //    Paragraph::new(format!("Frame: {}", frame.area()))
-        //        .style(Style::default().bg(Color::Red)),
-        //    Rect::new(0, 0, 50, 5), //.intersection(frame.area()),
-        //);
+
         if let Some(window) = self.window_stack.last_mut() {
             window.render(frame, frame.area())
         }
-
-        //frame.render_widget(
-        //    Paragraph::new(self.player.name().to_string())
-        //        .block(Block::bordered().title(breadcrumbs(&["Player"]))),
-        //    frame.area(),
-        //);
-        //
-        //frame.render_widget(
-        //    Paragraph::new("This is a test!\nAnotherLine!")
-        //        .block(Block::bordered().title(breadcrumbs(&["Player", "Test"]))),
-        //    Rect::new(10, 10, 30, 3),
-        //);
     }
 
     fn handle_events(&mut self) -> io::Result<()> {

@@ -63,10 +63,9 @@ impl Window for PlayerWindow {
 
         let name = format!("{}!", player.name());
         let mut name_area = areas[0];
-        name_area.width = name.len() as u16 + 2;
+        name_area.width = 22;
         frame.render_widget(
-            Paragraph::new(format!("{}!", player.name()))
-                .block(Block::default().borders(Borders::ALL).title("Name")),
+            Paragraph::new(name).block(Block::default().borders(Borders::ALL).title("Name")),
             name_area,
         );
 
