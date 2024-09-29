@@ -7,6 +7,9 @@ edition = "2018"
 # [lib]
 # proc-macro = true
 
+[workspace]
+members = [".", "tui"]
+
 [dependencies]
 bit-array = "0.4.4"
 bit-vec = "0.6.3"

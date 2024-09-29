@@ -1,0 +1,9 @@
+[package]
+name = "old_tui"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+d2_itemsorter = { path = ".." } 
+ratatui = "0.28.1"
+
