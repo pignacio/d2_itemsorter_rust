@@ -45,8 +45,8 @@ pub struct Item {
     x: u8,
     y: u8,
     _unk7: MyBitVec,
-    item_type: [u8; 4],
-    item_info: ItemInfo,
+    pub item_type: [u8; 4],
+    pub item_info: ItemInfo,
     extended_info: Option<ExtendedInfo>,
     random_pad: Option<[u8; 12]>,
     specific_info: Option<SpecificInfo>,
@@ -498,7 +498,7 @@ pub struct NewItem {
     pub location: BitsyInt<u8, 3>,
     pub item_type: HuffmanChars<4>,
     pub item_info: ItemInfo,
-    extended_info: Option<NewExtendedInfo>,
+    pub extended_info: Option<NewExtendedInfo>,
     item_properties: Option<NewPropertyList>,
     runeword_properties: Option<NewPropertyList>,
     has_extra_padding: bool,
@@ -707,13 +707,13 @@ impl Bitsy for ItemList {
 }
 
 #[derive(Debug)]
-struct NewExtendedInfo {
+pub struct NewExtendedInfo {
     gem_count: BitsyInt<u8, 3>,
     guid: BitsyBytes<4>,
     drop_level: BitsyInt<u8, 7>,
     gfx: BitsyOption<BitsyInt<u8, 3>>,
     class_info: BitsyOption<Bits<11>>,
-    quality: ItemQuality,
+    pub quality: ItemQuality,
     runeword: Option<Bits<16>>,
     //realm_data_present: bool,
     //realm_data_present: BitsyOption<Bits<128>>,
