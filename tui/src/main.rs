@@ -1,11 +1,10 @@
 use cursive::{
-    direction::Orientation,
     event::{Event, Key},
     logger,
     reexports::log,
-    theme::{BorderStyle, Color, Palette, PaletteColor, PaletteStyle, Theme},
+    theme::{BorderStyle, Color, Palette, PaletteColor, Theme},
     view::Resizable,
-    views::{stack_view::NoShadow, EditView, LinearLayout, PaddedView, TextView},
+    views::{stack_view::NoShadow, LinearLayout, TextView},
     View,
 };
 use d2_itemsorter::{
@@ -83,7 +82,8 @@ fn main() -> Result<()> {
     siv.add_global_callback(Event::Key(Key::F1), |s| s.toggle_debug_console());
 
     let player_view = views::PlayerView::new(player);
-    siv.add_layer(player_view.full_screen());
+    siv.screen_mut()
+        .add_layer(NoShadow(player_view.full_screen()));
 
     siv.run();
     Ok(())
