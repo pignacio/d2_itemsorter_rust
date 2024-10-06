@@ -35,7 +35,12 @@ impl StatsView {
                         "{}: ",
                         ATTRIBUTE_NAMES[attribute_id.value() as usize]
                     )))
-                    .child(EditView::new().content(value.to_string()).min_width(10)),
+                    .child(
+                        EditView::new()
+                            .content(value.to_string())
+                            .filler(' ')
+                            .min_width(10),
+                    ),
             );
         }
         view
