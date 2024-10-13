@@ -16,7 +16,7 @@ pub struct ItemInfo {
 
 impl ItemInfo {
     fn default(id: &str) -> Self {
-        return ItemInfo {
+        ItemInfo {
             id: id.to_string(),
             name: "?????????".to_string(),
             height: None,
@@ -24,13 +24,13 @@ impl ItemInfo {
             has_durability: false,
             has_defense: false,
             has_quantity: false,
-        };
+        }
     }
 }
 
 impl Default for ItemInfo {
     fn default() -> Self {
-        return ItemInfo::default("????");
+        ItemInfo::default("????")
     }
 }
 
@@ -38,15 +38,14 @@ pub trait ItemDb {
     fn get_info(&self, id: &str) -> ItemInfo;
 }
 
+#[derive(Default)]
 pub struct MapItemDb {
     item_infos: HashMap<String, ItemInfo>,
 }
 
 impl MapItemDb {
-    pub fn new() -> MapItemDb {
-        return MapItemDb {
-            item_infos: HashMap::new(),
-        };
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn from_data_dir<P: AsRef<Path>>(path: P) -> MapItemDb {
@@ -65,7 +64,7 @@ impl MapItemDb {
         item_db.add_items_from_csv(path_ref.join("stack.csv"), false, false, true);
         item_db.add_items_from_csv(path_ref.join("stack-weapons.csv"), true, false, true);
         item_db.add_items_from_csv(path_ref.join("weapons.csv"), true, false, false);
-        return item_db;
+        item_db
     }
 
     fn add_items_from_csv<P: AsRef<Path>>(
@@ -105,17 +104,15 @@ impl ItemDb for MapItemDb {
     fn get_info(&self, id: &str) -> ItemInfo {
         self.item_infos
             .get(id)
-            .map(|x| x.clone())
-            .unwrap_or_else(|| {
-                return ItemInfo {
-                    id: id.to_string(),
-                    name: "?????????".to_string(),
-                    height: None,
-                    width: None,
-                    has_durability: false,
-                    has_defense: false,
-                    has_quantity: false,
-                };
+            .cloned()
+            .unwrap_or_else(|| ItemInfo {
+                id: id.to_string(),
+                name: "?????????".to_string(),
+                height: None,
+                width: None,
+                has_durability: false,
+                has_defense: false,
+                has_quantity: false,
             })
     }
 }

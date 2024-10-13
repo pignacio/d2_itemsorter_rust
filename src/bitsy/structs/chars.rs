@@ -1,4 +1,4 @@
-use std::convert::TryInto;
+use std::{convert::TryInto, fmt::Display};
 
 use crate::bitsy::{
     error::BitsyErrorKind, result::BitsyResult, BitReader, BitSized, BitWriter, Bitsy,
@@ -9,12 +9,12 @@ pub struct BitsyChars<const N: usize> {
     bytes: [u8; N],
 }
 
-impl<const N: usize> BitsyChars<N> {
-    pub fn to_string(&self) -> String {
+impl<const N: usize> Display for BitsyChars<N> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.bytes
             .iter()
             .map(|byte| *byte as char)
-            .collect::<String>()
+            .try_for_each(|c| c.fmt(f))
     }
 }
 

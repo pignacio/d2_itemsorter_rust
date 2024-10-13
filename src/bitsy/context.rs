@@ -39,7 +39,7 @@ lazy_static::lazy_static! {
     pub static ref QUALITY_ID: ContextKey<QualityId> = ContextKey::new("quality_id");
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ContextMap {
     map: Rc<Mutex<HashMap<String, serde_json::Value>>>,
 }
@@ -54,9 +54,7 @@ impl Clone for ContextMap {
 
 impl ContextMap {
     pub fn new() -> Self {
-        Self {
-            map: Rc::new(Mutex::new(HashMap::new())),
-        }
+        Self::default()
     }
 
     fn lock(&self) -> MutexGuard<HashMap<String, serde_json::Value>> {

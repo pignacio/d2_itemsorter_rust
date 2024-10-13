@@ -1,4 +1,4 @@
-use std::{any::type_name, cmp::min, convert::TryInto, prelude::rust_2021::TryFrom, rc::Rc};
+use std::{any::type_name, cmp::min, prelude::rust_2021::TryFrom, rc::Rc};
 
 use crate::{
     bitsy::parse_int,
@@ -13,7 +13,7 @@ use super::{
     context::{ContextKey, ContextMap, ContextValue},
     error::{BitsyError, BitsyErrorKind},
     result::BitsyResult,
-    BitReader, Bitsy, MyBitSlice, MyBitVec,
+    BitReader, Bitsy, MyBitVec,
 };
 
 pub struct BitVecReader {

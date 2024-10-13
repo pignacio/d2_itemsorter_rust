@@ -5,7 +5,7 @@ use crate::{
         macros::{bitsy_cond_read, bitsy_read, bitsy_write},
         result::BitsyResult,
         structs::{BitsyBytes, BitsyChars, BitsyInt},
-        BitReader, BitSized, BitWriter, Bitsy, MyBitVec,
+        BitReader, BitSized, BitWriter, Bitsy,
     },
     constants::{IRON_GOLEM_HEADER, ITEM_HEADER, MERC_HEADER},
     item::{ItemList, NewItem},
@@ -390,11 +390,12 @@ impl Bitsy for IronGolem {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
 
     use crate::{
-        bitsy::{bitsy_to_bits, compare_bitslices, BitVecReader, BitVecWriter, HuffmanChars},
-        item::info::{ItemDb, MapItemDb},
+        bitsy::{
+            bitsy_to_bits, compare_bitslices, BitVecReader, BitVecWriter, HuffmanChars, MyBitVec,
+        },
+        item::info::MapItemDb,
     };
 
     //fn compare_bitvecs(expected: &MyBitVec, actual: &MyBitVec) -> Result<(), String> {

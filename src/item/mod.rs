@@ -162,9 +162,10 @@ impl Item {
                 println!("Tail has size {}: {}", tail.len(), tail);
                 println!("First property id: {}", Item::bits_to_int(tail, 0, 9));
                 let mut values = [0; 20];
-                for i in 0..values.len() {
-                    values[i] = Item::bits_to_int(tail, 9, i + 1);
-                }
+                values
+                    .iter_mut()
+                    .enumerate()
+                    .for_each(|(i, v)| *v = Item::bits_to_int(tail, 9, i + 1));
                 println!(
                     " * First possible values: {}",
                     values.map(|x| x.to_string()).join(", ")
@@ -181,7 +182,7 @@ impl Item {
             }
         }
 
-        return item;
+        item
     }
 
     fn bits_to_int(bit_vec: &MyBitVec, skip: usize, size: usize) -> i32 {
@@ -214,15 +215,15 @@ impl Item {
         bitvec.append_bits(&self._unk7);
         bitvec.extend_from_raw_slice(&self.item_type);
         if let Some(info) = &self.extended_info {
-            info.append_to(bitvec, &self);
+            info.append_to(bitvec, self);
         }
         bitvec.append_optional_byte_arr(&self.random_pad);
         self.specific_info
             .as_ref()
-            .map(|info| info.append_to(bitvec, &self));
+            .map(|info| info.append_to(bitvec, self));
         self.item_properties
             .as_ref()
-            .map(|props| props.append_to(bitvec, &self));
+            .map(|props| props.append_to(bitvec, self));
         bitvec.append_bits(&self.tail);
     }
 }
@@ -252,17 +253,19 @@ impl Display for Item {
 }
 
 fn is_padding(tail: &MyBitVec) -> bool {
-    return tail.len() < 8 && tail.not_any();
+    tail.len() < 8 && tail.not_any()
 }
 
 fn conditional_display(condition: bool, display: &str) -> &str {
-    return if condition { display } else { "" };
+    if condition {
+        display
+    } else {
+        ""
+    }
 }
 
 fn arr_to_chr(arr: &[u8]) -> String {
-    let string = arr.iter().map(|x| *x as char).collect::<String>();
-
-    return format!("{}", string);
+    arr.iter().map(|x| *x as char).collect::<String>()
 }
 
 struct ExtendedInfo {
@@ -302,7 +305,7 @@ impl ExtendedInfo {
             panic!("We do not support inscribed items yet");
         }
 
-        return (info, gem_count);
+        (info, gem_count)
     }
 
     pub fn append_to(&self, bitvec: &mut MyBitVec, item: &Item) {
@@ -334,7 +337,7 @@ impl ExtendedInfo {
 
 impl Display for ExtendedInfo {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        return write!(
+        write!(
             f,
             "guid:{}, iLvl:{}, q:{}, gfx:{:?} class_info:{}",
             to_hex(&self.guid),
@@ -345,7 +348,7 @@ impl Display for ExtendedInfo {
                 .as_ref()
                 .map(|x| format!("{}", x))
                 .unwrap_or("None".to_string()),
-        );
+        )
     }
 }
 
@@ -395,7 +398,7 @@ impl SpecificInfo {
         if item.item_info.has_quantity {
             info.quantity = Some(bits.read_int(9));
         }
-        return info;
+        info
     }
 
     fn append_to(&self, bitvec: &mut MyBitVec, item: &Item) {
@@ -409,19 +412,19 @@ impl SpecificInfo {
 
 impl Display for SpecificInfo {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        return write!(
+        write!(
             f,
             "{}{}{}",
             self.defense
                 .map(|x| { format!("Def:{} ", x) })
-                .unwrap_or(String::default()),
+                .unwrap_or_default(),
             self.max_durability
                 .map(|x| { format!("Dur:{}/{} ", self.current_durability.unwrap_or(0), x) })
-                .unwrap_or(String::default()),
+                .unwrap_or_default(),
             self.quantity
                 .map(|x| { format!("Qty:{} ", x) })
-                .unwrap_or(String::default()),
-        );
+                .unwrap_or_default(),
+        )
     }
 }
 
@@ -461,7 +464,7 @@ impl ItemProperties {
             .as_ref()
             .map(|info| info.quality.quality_id())
             .unwrap();
-        return quality_id == SET_QUALITY_ID;
+        quality_id == SET_QUALITY_ID
     }
 
     pub fn append_to(&self, bit_vec: &mut MyBitVec, item: &Item) {
@@ -519,7 +522,6 @@ fn search_huffman<R: BitReader>(reader: &mut R, string: &str) {
 
 impl Bitsy for NewItem {
     fn parse<R: BitReader>(reader: &mut R) -> BitsyResult<Self> {
-        let start_bit = reader.index();
         let _reset = reader.queue_context_reset();
         let version = reader.get_context(&context::VERSION)?;
         if version < 97 {
@@ -813,11 +815,11 @@ struct NewPropertyList {
 impl NewPropertyList {
     fn first_unknown_id(&self) -> Option<String> {
         if self.tail.is_empty() {
-            return None;
+            None
         } else if self.tail.len() < 9 {
-            return Some("TOO SHORT!!".to_string());
+            Some("TOO SHORT!!".to_string())
         } else {
-            return Some(parse_int(&self.tail[..9]).unwrap().to_string());
+            Some(parse_int(&self.tail[..9]).unwrap().to_string())
         }
     }
 }

@@ -233,7 +233,6 @@ fn show_bitslice_around(bits: &MyBitSlice, index: usize) -> String {
 
 #[cfg(test)]
 pub mod testutils {
-    use std::cmp::min;
 
     use super::*;
 

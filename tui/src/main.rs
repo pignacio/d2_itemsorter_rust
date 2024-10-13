@@ -4,8 +4,7 @@ use cursive::{
     reexports::log,
     theme::{BorderStyle, Color, Palette, PaletteColor, Theme},
     view::Resizable,
-    views::{stack_view::NoShadow, LinearLayout, TextView},
-    View,
+    views::stack_view::NoShadow,
 };
 use d2_itemsorter::{
     bitsy::{BitReader, BitVecReader, MyBitVec},
@@ -66,10 +65,4 @@ fn main() -> Result<()> {
 
     siv.run();
     Ok(())
-}
-
-fn labeled(label: &str, view: impl View) -> impl View {
-    LinearLayout::horizontal()
-        .child(TextView::new(format!("{label}:")))
-        .child(view)
 }
