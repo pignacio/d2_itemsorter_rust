@@ -1,5 +1,5 @@
 use std::{
-    fmt::{Debug, Display, Formatter},
+    fmt::{Debug, Display, Formatter, Write},
     ops::Deref,
 };
 
@@ -218,12 +218,12 @@ impl Item {
             info.append_to(bitvec, self);
         }
         bitvec.append_optional_byte_arr(&self.random_pad);
-        self.specific_info
-            .as_ref()
-            .map(|info| info.append_to(bitvec, self));
-        self.item_properties
-            .as_ref()
-            .map(|props| props.append_to(bitvec, self));
+        if let Some(info) = &self.specific_info {
+            info.append_to(bitvec, self)
+        }
+        if let Some(props) = &self.item_properties {
+            props.append_to(bitvec, self)
+        }
         bitvec.append_bits(&self.tail);
     }
 }
@@ -359,10 +359,10 @@ impl Debug for ExtendedInfo {
 }
 
 fn to_hex(arr: &[u8]) -> String {
-    return arr
-        .iter()
-        .map(|value| format!("{:X?}", value))
-        .collect::<String>();
+    arr.iter().fold(String::new(), |mut acc, value| {
+        write!(acc, "{value:X?}").unwrap();
+        acc
+    })
 }
 
 #[derive(Debug)]
@@ -402,11 +402,21 @@ impl SpecificInfo {
     }
 
     fn append_to(&self, bitvec: &mut MyBitVec, item: &Item) {
-        self.defense.map(|x| bitvec.append_int(x, 11));
-        self.max_durability.map(|x| bitvec.append_int(x, 9));
-        self.current_durability.map(|x| bitvec.append_int(x, 9));
-        item.num_sockets.map(|x| bitvec.append_int(x, 4));
-        self.quantity.map(|x| bitvec.append_int(x, 9));
+        if let Some(defense) = self.defense {
+            bitvec.append_int(defense, 11)
+        }
+        if let Some(max_durability) = self.max_durability {
+            bitvec.append_int(max_durability, 9)
+        }
+        if let Some(current_durability) = self.current_durability {
+            bitvec.append_int(current_durability, 9)
+        }
+        if let Some(num_sockets) = item.num_sockets {
+            bitvec.append_int(num_sockets, 4)
+        }
+        if let Some(quantity) = self.quantity {
+            bitvec.append_int(quantity, 9)
+        }
     }
 }
 
@@ -475,7 +485,9 @@ impl ItemProperties {
         }
         self.properties.append_to(bit_vec);
         for opt in &self.set_properties {
-            opt.as_ref().map(|props| props.append_to(bit_vec));
+            if let Some(props) = opt.as_ref() {
+                props.append_to(bit_vec)
+            }
         }
     }
 }

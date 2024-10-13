@@ -54,7 +54,7 @@ impl PropertyList {
                 break;
             }
         }
-        return PropertyList { properties, tail };
+        PropertyList { properties, tail }
     }
 
     pub fn append_to(&self, bitvec: &mut MyBitVec) {
@@ -67,7 +67,7 @@ impl PropertyList {
     }
 
     pub fn tail_is_padding(&self) -> bool {
-        return self.tail.len() < 8 && self.tail.not_any();
+        self.tail.len() < 8 && self.tail.not_any()
     }
 }
 
@@ -112,19 +112,17 @@ impl PropertyDef {
 
     fn parse_values(&self, reader: &mut ItemReader) -> Values {
         let mut result = [0i32; MAX_PROPERTY_VALUES];
-        for index in 0..MAX_PROPERTY_VALUES {
-            let definition = self.values[index];
+        for (index, definition) in self.values.iter().enumerate() {
             if definition.size > 0 {
                 let value: u32 = reader.read_int(definition.size);
                 result[index] = value as i32 - definition.offset as i32;
             }
         }
-        return result;
+        result
     }
 
     fn append_values(&self, values: Values, bits: &mut MyBitVec) {
-        for index in 0..MAX_PROPERTY_VALUES {
-            let definition = self.values[index];
+        for (index, definition) in self.values.iter().enumerate() {
             if definition.size > 0 {
                 bits.append_int(
                     (values[index] + definition.offset as i32) as u32,
@@ -143,16 +141,10 @@ impl PropertyDef {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 struct ValueDef {
     size: usize,
     offset: usize,
-}
-
-impl Default for ValueDef {
-    fn default() -> Self {
-        ValueDef { size: 0, offset: 0 }
-    }
 }
 
 #[macro_export]
@@ -183,7 +175,13 @@ pub struct MapPropertyDb {
 
 impl PropertyDb for MapPropertyDb {
     fn get_definition(&self, id: u16) -> Option<PropertyDef> {
-        return self.properties.get(&id).map(|x| x.clone());
+        return self.properties.get(&id).cloned();
+    }
+}
+
+impl Default for MapPropertyDb {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -369,7 +367,7 @@ impl MapPropertyDb {
         db.add(PropertyDef::new(505, "+{:d} Extra duration (in frames) to portable shrines", defs![15]));
         db.add(PropertyDef::new(508, "Boosts Summon Damage by {:d}%", defs![12]));
 
-        return db;
+        db
     }
 
     fn add(&mut self, def: PropertyDef) {
