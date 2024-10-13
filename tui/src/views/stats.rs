@@ -1,6 +1,6 @@
 use cursive::{
     view::{Resizable, ViewWrapper},
-    views::{EditView, LinearLayout, PaddedView, TextView},
+    views::{DummyView, EditView, LinearLayout, TextView},
     wrap_impl,
 };
 use d2_itemsorter::player::ATTRIBUTE_NAMES;
@@ -20,14 +20,9 @@ impl StatsView {
 
     fn build_layout(player: PlayerRef) -> LinearLayout {
         let data = player.force_lock();
-        let mut view = LinearLayout::vertical();
-        view.add_child(PaddedView::lrtb(
-            0,
-            0,
-            1,
-            1,
-            TextView::new(format!("Name: {}", data.name())),
-        ));
+        let mut view = LinearLayout::vertical()
+            .child(TextView::new(format!("Name: {}", data.name())))
+            .child(DummyView);
         for (attribute_id, value) in data.attributes.get() {
             view.add_child(
                 LinearLayout::horizontal()

@@ -2,7 +2,7 @@ use cursive::{
     align::HAlign,
     reexports::log,
     view::{Nameable, Resizable, SizeConstraint, ViewWrapper},
-    views::{Dialog, LinearLayout, PaddedView, TextView},
+    views::{Dialog, DummyView, LinearLayout, TextView},
     wrap_impl,
 };
 use cursive_table_view::{TableView, TableViewItem};
@@ -51,13 +51,11 @@ impl ItemsView {
             .with_name(ITEM_TABLE_VIEW_NAME);
         let item_count = player.force_lock().items.len();
         let view = LinearLayout::vertical()
-            .child(PaddedView::lrtb(
-                1,
-                1,
-                1,
-                1,
-                TextView::new(format!("The player has {} items", item_count)),
-            ))
+            .child(TextView::new(format!(
+                "The player has {} items",
+                item_count
+            )))
+            .child(DummyView)
             .child(table.resized(SizeConstraint::Full, SizeConstraint::Full));
         Self { player, view }
     }
