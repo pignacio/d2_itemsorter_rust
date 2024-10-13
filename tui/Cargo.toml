@@ -8,3 +8,4 @@ d2_itemsorter = { path = ".." }
 cursive = "0.21.1"
 cursive-tabs = "0.8.0"
 cursive_table_view = "0.15.0"
+catppuccin = "2.4.0"
