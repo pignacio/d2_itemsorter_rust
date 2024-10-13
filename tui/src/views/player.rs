@@ -50,9 +50,11 @@ impl PlayerView {
     pub fn new(player: Player) -> Self {
         let player = PlayerRef::new(player);
         let mut tabs = TabPanel::new()
-            .with_tab(StatsView::new(player.clone()).with_name("Stats"))
             .with_tab(ItemsView::new(player.clone()).with_name("Items"))
-            .with_tab(TextView::new("This is the sarasa view!").with_name("Sarasa"));
+            .with_tab(TextView::new("This is the sarasa view!").with_name("Sarasa"))
+            // We add the first tab last because adding tabs set the cursor
+            .with_tab_at(StatsView::new(player.clone()).with_name("Stats"), 0);
+
         tabs.set_active_tab("Stats").unwrap();
 
         Self { player, tabs }
